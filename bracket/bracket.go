@@ -1,19 +1,26 @@
 package bracket
 
 import (
+	"errors"
 	"math"
 	"os"
+
+	"github.com/dimfu/spade/bracket/templates"
 )
 
 type BracketTree struct {
 	InsertionOrder []int
 	Root           *Node
+	Matches        []templates.Match
+	StartingSeats  []int
 }
 
-func NewBracketTree(node *Node) *BracketTree {
+func NewBracketTree(node *Node, matches []templates.Match) *BracketTree {
 	return &BracketTree{
 		InsertionOrder: []int{},
 		Root:           node,
+		Matches:        matches,
+		StartingSeats:  []int{},
 	}
 }
 
@@ -26,19 +33,29 @@ func calculateRounds(players int) int {
 	return rounds
 }
 
-func GenerateFromTemplate(size int) *BracketTree {
-	if size == 0 {
-		return nil
+func GenerateFromTemplate(size int) (*BracketTree, error) {
+	if size <= 0 {
+		return nil, errors.New("size cannot be <= 0")
+	}
+
+	matches, err := templates.WithTemplate(size)
+	if err != nil {
+		return nil, err
 	}
 
 	// generate how many rounds/depths it takes from N players
 	rounds := calculateRounds(size)
-	tNodes := int(math.Pow(2, float64(rounds+1))) - 1 // and we find out how many nodes needed to have tree with N rounds
+	// and we find out how many nodes needed to have tree with N rounds
+	tNodes := int(math.Pow(2, float64(rounds+1))) - 1
 
 	seats := make([]int, tNodes)
 	for i := 0; i < tNodes; i++ {
 		seats[i] = i + 1
 	}
+
+	var depth float64
+	var visited int
+	seedingPos := make(map[int][]int)
 
 	mid := len(seats) / 2
 	insertionOrder := []int{}
@@ -52,8 +69,12 @@ func GenerateFromTemplate(size int) *BracketTree {
 	}{{Node: root, Start: 0, End: len(seats) - 1}}
 
 	for len(queue) > 0 {
+		visited++
 		curr := queue[0]
 		queue = queue[1:]
+
+		depth = math.Ceil(math.Log(float64(visited+1)) / math.Log(2))
+		seedingPos[int(depth)] = append(seedingPos[int(depth)], curr.Node.Position)
 
 		// find the middle of the entire current segment (or parent)
 		mid := (curr.Start + curr.End) / 2 // 7
@@ -87,9 +108,14 @@ func GenerateFromTemplate(size int) *BracketTree {
 		}
 	}
 
-	bt := NewBracketTree(root)
+	bt := NewBracketTree(root, matches)
 	bt.InsertionOrder = insertionOrder
-	return bt
+	bt.StartingSeats = seedingPos[rounds+1] // rounds + 1 because we dont count the root
+	return bt, nil
+}
+
+func (bt *BracketTree) Seed([]interface{}) {
+
 }
 
 // visualization for debugging purposes
