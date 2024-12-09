@@ -2,6 +2,7 @@ package bracket
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"os"
 
@@ -114,8 +115,64 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 	return bt, nil
 }
 
-func (bt *BracketTree) Seed([]interface{}) {
+func (bt *BracketTree) Search(pos int) (*Node, error) {
+	if bt.Root == nil {
+		return nil, errors.New("root is empty")
+	}
+	node := bt.Root.search(pos)
+	if node == nil {
+		return nil, errors.New("node not found")
+	}
 
+	return node, nil
+}
+
+func (bt BracketTree) findSeedPos(pos int) (int, error) {
+	if pos < 1 || pos > len(bt.StartingSeats) {
+		return -1, fmt.Errorf("position %d is out of bounds", pos)
+	}
+	return bt.StartingSeats[pos-1], nil
+}
+
+func (bt *BracketTree) Seed(pos int, payload interface{}) (*Node, error) {
+	idx, err := bt.findSeedPos(pos)
+	if err != nil {
+		return nil, err
+	}
+	node, err := bt.Search(idx)
+	if err != nil {
+		return nil, err
+	}
+
+	if node.Payload == nil {
+		node.Payload = payload
+		return node, nil
+	}
+
+	for curPos := len(bt.StartingSeats); curPos >= pos; curPos-- {
+		curIdx, err := bt.findSeedPos(curPos)
+		if err != nil {
+			return nil, err
+		}
+		curNode, err := bt.Search(curIdx)
+		if err != nil {
+			return nil, err
+		}
+
+		if curPos == pos {
+			curNode.Payload = payload
+			return curNode, nil
+		}
+
+		prevNode, err := bt.Search(curIdx - 2)
+		if err != nil {
+			return nil, err
+		}
+
+		curNode.Payload = prevNode.Payload
+	}
+
+	return node, nil
 }
 
 // visualization for debugging purposes

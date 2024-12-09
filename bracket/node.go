@@ -21,6 +21,20 @@ func NewNode(position int, payload interface{}) *Node {
 	}
 }
 
+func (n *Node) search(pos int) *Node {
+	curr := n
+	for curr != nil {
+		if curr.Position == pos {
+			return curr
+		} else if curr.Position > pos {
+			curr = curr.Left
+		} else {
+			curr = curr.Right
+		}
+	}
+	return curr
+}
+
 func (n *Node) Print(w io.Writer, ns int, ch rune) {
 	if n == nil {
 		return
