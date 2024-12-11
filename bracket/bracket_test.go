@@ -6,8 +6,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/dimfu/spade/bracket/seeds"
 	"github.com/dimfu/spade/bracket/templates"
 )
+
+type payload struct {
+	name string
+}
 
 func TestGenerate(t *testing.T) {
 	type testCase struct {
@@ -115,15 +120,10 @@ func TestSeedingPosition(t *testing.T) {
 		})
 	}
 }
-
-func TestInsertSeed(t *testing.T) {
-	type payload struct {
-		name string
-	}
-
+func TestInsertDuplicatePos(t *testing.T) {
 	type seed struct {
 		payload payload
-		pos     int
+		seat    int
 	}
 
 	type testCase struct {
@@ -132,10 +132,10 @@ func TestInsertSeed(t *testing.T) {
 	}
 
 	seeds := []seed{
-		{payload: payload{name: "Player 1"}, pos: 7},
-		{payload: payload{name: "Player 2"}, pos: 7},
-		{payload: payload{name: "Player 3"}, pos: 8},
-		{payload: payload{name: "Player 4"}, pos: 6},
+		{payload: payload{name: "Player 1"}, seat: 6},
+		{payload: payload{name: "Player 2"}, seat: 6},
+		{payload: payload{name: "Player 3"}, seat: 7},
+		{payload: payload{name: "Player 4"}, seat: 5},
 	}
 
 	tests := []testCase{
@@ -157,7 +157,7 @@ func TestInsertSeed(t *testing.T) {
 
 	res := make(map[int]*Node)
 	for _, seed := range seeds {
-		node, err := bt.Seed(seed.pos, seed.payload)
+		node, err := bt.Seed(seed.seat, seed.payload)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -195,20 +195,23 @@ func TestSimulateWinner(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	seeds := []seed{
-		{payload: payload{name: "Player 1"}, pos: 1},
-		{payload: payload{name: "Player 2"}, pos: 2},
-		{payload: payload{name: "Player 3"}, pos: 3},
-		{payload: payload{name: "Player 4"}, pos: 4},
+	s := make([]interface{}, templates.TOP_8)
+	for i := 0; i < templates.TOP_8; i++ {
+		s[i] = payload{name: fmt.Sprintf("Player %d", i+1)}
 	}
 
-	for _, seed := range seeds {
-		if _, err := bt.Seed(seed.pos, seed.payload); err != nil {
+	newSeeds, err := seeds.NewSeeds(s, seeds.BEST_AGAINST_WORST)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, seed := range newSeeds {
+		if _, err := bt.Seed(i, seed); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	node, err := bt.MatchWinner(1)
+	node, err := bt.MatchWinner(3)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -133,10 +133,10 @@ func (bt *BracketTree) Search(pos int) (*Node, error) {
 }
 
 func (bt BracketTree) findSeedPos(pos int) (int, error) {
-	if pos < 1 || pos > len(bt.StartingSeats) {
+	if pos < 0 || pos > len(bt.StartingSeats) {
 		return -1, fmt.Errorf("position %d is out of bounds", pos)
 	}
-	return bt.StartingSeats[pos-1], nil
+	return bt.StartingSeats[pos], nil
 }
 
 func (bt *BracketTree) Seed(pos int, payload interface{}) (*Node, error) {
@@ -154,7 +154,7 @@ func (bt *BracketTree) Seed(pos int, payload interface{}) (*Node, error) {
 		return node, nil
 	}
 
-	for curPos := len(bt.StartingSeats); curPos >= pos; curPos-- {
+	for curPos := len(bt.StartingSeats) - 1; curPos >= pos; curPos-- {
 		curIdx, err := bt.findSeedPos(curPos)
 		if err != nil {
 			return nil, err
