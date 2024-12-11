@@ -175,6 +175,36 @@ func (bt *BracketTree) Seed(pos int, payload interface{}) (*Node, error) {
 	return node, nil
 }
 
+func (bt *BracketTree) Winner() (*Node, error) {
+	if bt.Root.Payload != nil {
+		return bt.Root, nil
+	} else {
+		return nil, errors.New("bracket winner has not yet determined")
+	}
+}
+
+func (bt *BracketTree) MatchWinner(seat int) (*Node, error) {
+	node, err := bt.Search(seat)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, match := range bt.Matches {
+		for _, s := range match.Seats {
+			if s == seat {
+				toNode, err := bt.Search(match.WinnerTo)
+				if err != nil {
+					return nil, err
+				}
+				toNode.Payload = node.Payload
+				return toNode, nil
+			}
+		}
+	}
+
+	return nil, errors.New("seat not found")
+}
+
 // visualization for debugging purposes
 func (bt *BracketTree) Print() {
 	if bt.Root == nil {

@@ -43,7 +43,7 @@ func (n *Node) Print(w io.Writer, ns int, ch rune) {
 	for i := 0; i < ns; i++ {
 		fmt.Fprint(w, " ")
 	}
-	fmt.Fprintf(w, "%c:%v\n", ch, n.Position)
+	fmt.Fprintf(w, "%c:%v %v\n", ch, n.Position, n.Payload)
 	n.Left.Print(w, ns+2, 'L')
 	n.Right.Print(w, ns+2, 'R')
 }

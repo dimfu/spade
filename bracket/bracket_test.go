@@ -2,6 +2,7 @@ package bracket
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 
@@ -177,5 +178,55 @@ func TestInsertSeed(t *testing.T) {
 		if payload.name != tc.expectedPlayer {
 			t.Fatalf("expected player %q at position %d, but got %q", tc.expectedPlayer, tc.nodePos, payload.name)
 		}
+	}
+}
+
+func TestSimulateWinner(t *testing.T) {
+	type payload struct {
+		name string
+	}
+	type seed struct {
+		payload payload
+		pos     int
+	}
+
+	bt, err := GenerateFromTemplate(templates.TOP_8)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	seeds := []seed{
+		{payload: payload{name: "Player 1"}, pos: 1},
+		{payload: payload{name: "Player 2"}, pos: 2},
+		{payload: payload{name: "Player 3"}, pos: 3},
+		{payload: payload{name: "Player 4"}, pos: 4},
+	}
+
+	for _, seed := range seeds {
+		if _, err := bt.Seed(seed.pos, seed.payload); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	node, err := bt.MatchWinner(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, err = bt.MatchWinner(node.Position)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, err = bt.MatchWinner(node.Position)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	winner, err := bt.Winner()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if winner.Payload.(payload).name != node.Payload.(payload).name {
+		t.Fatalf("the bracket winner should be %s", node.Payload.(payload).name)
 	}
 }
