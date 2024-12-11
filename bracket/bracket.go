@@ -3,6 +3,7 @@ package bracket
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"os"
 
@@ -14,6 +15,7 @@ type BracketTree struct {
 	Root           *Node
 	Matches        []templates.Match
 	StartingSeats  []int
+	SeatRoundPos   map[int][]int
 }
 
 func NewBracketTree(node *Node, matches []templates.Match) *BracketTree {
@@ -22,6 +24,7 @@ func NewBracketTree(node *Node, matches []templates.Match) *BracketTree {
 		Root:           node,
 		Matches:        matches,
 		StartingSeats:  []int{},
+		SeatRoundPos:   make(map[int][]int),
 	}
 }
 
@@ -48,6 +51,7 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 	rounds := calculateRounds(size)
 	// and we find out how many nodes needed to have tree with N rounds
 	tNodes := int(math.Pow(2, float64(rounds+1))) - 1
+	maxDepth := int(math.Floor(math.Log2(float64(tNodes)))) + 1
 
 	seats := make([]int, tNodes)
 	for i := 0; i < tNodes; i++ {
@@ -56,11 +60,8 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 
 	var depth float64
 	var visited int
-	seedingPos := make(map[int][]int)
 
 	mid := len(seats) / 2
-	insertionOrder := []int{}
-	insertionOrder = append(insertionOrder, seats[mid])
 
 	root := &Node{Position: seats[mid]}
 	queue := []struct {
@@ -69,13 +70,18 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 		End   int
 	}{{Node: root, Start: 0, End: len(seats) - 1}}
 
+	bt := NewBracketTree(root, matches)
+	bt.InsertionOrder = append(bt.InsertionOrder, seats[mid])
+
 	for len(queue) > 0 {
 		visited++
 		curr := queue[0]
 		queue = queue[1:]
 
 		depth = math.Ceil(math.Log(float64(visited+1)) / math.Log(2))
-		seedingPos[int(depth)] = append(seedingPos[int(depth)], curr.Node.Position)
+		relativeDepth := maxDepth - int(depth) + 1
+		// Store nodes at relative depth
+		bt.SeatRoundPos[relativeDepth] = append(bt.SeatRoundPos[relativeDepth], curr.Node.Position)
 
 		// find the middle of the entire current segment (or parent)
 		mid := (curr.Start + curr.End) / 2 // 7
@@ -86,7 +92,7 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 			leftMid := (curr.Start + mid - 1) / 2
 			leftNode := &Node{Position: seats[leftMid]}
 			curr.Node.Left = leftNode
-			insertionOrder = append(insertionOrder, seats[leftMid])
+			bt.InsertionOrder = append(bt.InsertionOrder, seats[leftMid])
 			queue = append(queue, struct {
 				Node  *Node
 				Start int
@@ -100,7 +106,7 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 			rightMid := (mid + 1 + curr.End) / 2
 			rightNode := &Node{Position: seats[rightMid]}
 			curr.Node.Right = rightNode
-			insertionOrder = append(insertionOrder, seats[rightMid])
+			bt.InsertionOrder = append(bt.InsertionOrder, seats[rightMid])
 			queue = append(queue, struct {
 				Node  *Node
 				Start int
@@ -109,9 +115,8 @@ func GenerateFromTemplate(size int) (*BracketTree, error) {
 		}
 	}
 
-	bt := NewBracketTree(root, matches)
-	bt.InsertionOrder = insertionOrder
-	bt.StartingSeats = seedingPos[rounds+1] // rounds + 1 because we dont count the root
+	// get the seeding position seats or first round seats
+	bt.StartingSeats = bt.SeatRoundPos[1]
 	return bt, nil
 }
 
@@ -203,6 +208,21 @@ func (bt *BracketTree) MatchWinner(seat int) (*Node, error) {
 	}
 
 	return nil, errors.New("seat not found")
+}
+
+func (bt *BracketTree) NodesInRound(round int) ([]*Node, error) {
+	var nodes []*Node
+	if seats, exists := bt.SeatRoundPos[round]; exists {
+		for _, seat := range seats {
+			node, err := bt.Search(seat)
+			if err != nil {
+				log.Fatal(err)
+			}
+			nodes = append(nodes, node)
+		}
+		return nodes, nil
+	}
+	return nil, errors.New("can't find any nodes for this round")
 }
 
 // visualization for debugging purposes
