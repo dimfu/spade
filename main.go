@@ -8,11 +8,15 @@ import (
 	"syscall"
 
 	"github.com/dimfu/spade/config"
+	"github.com/dimfu/spade/database"
 	"github.com/dimfu/spade/discord"
 )
 
 func main() {
 	config.Init()
+
+	db := database.GetConnection()
+	defer db.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 

@@ -1,0 +1,55 @@
+services:
+  app:
+    container_name: spade
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: spade
+    ports:
+      - 8080:8080
+    env_file:
+      - ./.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - network
+
+  mysql:
+    container_name: spade-mysql
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  setup:
+    image: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      mysql -h mysql -u root -p${MYSQL_ROOT_PASSWORD} ${MYSQL_DATABASE} -e \"
+      GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
+      FLUSH PRIVILEGES;\"
+      "
+    networks:
+      - network
+
+volumes:
+  dbdata:
+
+networks:
+  network:
+    driver: bridge
