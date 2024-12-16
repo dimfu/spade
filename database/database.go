@@ -11,7 +11,7 @@ import (
 
 func GetConnection() *sql.DB {
 	cfg := config.GetEnv()
-	src := fmt.Sprintf("%s:@tcp(myqsl:%s)/%s", cfg.DB_USER, cfg.DB_PORT, cfg.DB_NAME)
+	src := fmt.Sprintf("%s:%s@tcp(db:%s)/%s", cfg.DB_USER, cfg.DB_PASSWORD, cfg.DB_PORT, cfg.DB_NAME)
 	db, err := sql.Open("mysql", src)
 	if err != nil {
 		panic(err)

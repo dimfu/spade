@@ -7,4 +7,4 @@ stop:
 	docker compose stop
 
 db-shell:
-	docker exec -it spade-mysql mysql -u root -p
+	docker exec -it db mysql -u root -p

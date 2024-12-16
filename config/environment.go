@@ -12,6 +12,7 @@ type Environment struct {
 	DB_NAME           string
 	DB_PORT           string
 	DB_USER           string
+	DB_PASSWORD       string
 }
 
 var environment Environment
