@@ -33,6 +33,22 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    image: migrate/migrate
+    volumes:
+      - ./database/migrations:/database/migrations
+    depends_on:
+      db:
+        condition: service_healthy 
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+    command: ["-source", "file://database/migrations", "-database", "mysql://root:${MYSQL_ROOT_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/${MYSQL_DATABASE}?multiStatements=true", "-verbose", "up"]
+    networks:
+      - network
+
   setup:
     image: mysql
     depends_on:
