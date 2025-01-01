@@ -14,6 +14,8 @@ services:
         condition: service_healthy
     networks:
       - network
+    volumes:
+      - ./:/app
 
   db:
     container_name: db
