@@ -9,7 +9,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func GetConnection() *sql.DB {
+var _db *sql.DB
+
+func GetDB() *sql.DB {
+	return _db
+}
+
+func Init() *sql.DB {
 	cfg := config.GetEnv()
 	src := fmt.Sprintf("%s:%s@tcp(db:%s)/%s", cfg.DB_USER, cfg.DB_PASSWORD, cfg.DB_PORT, cfg.DB_NAME)
 	db, err := sql.Open("mysql", src)
@@ -22,6 +28,8 @@ func GetConnection() *sql.DB {
 	}
 
 	log.Printf("Established connection to database")
+
+	_db = db
 
 	return db
 }

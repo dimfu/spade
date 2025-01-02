@@ -15,7 +15,7 @@ import (
 func main() {
 	config.Init()
 
-	db := database.GetConnection()
+	db := database.Init()
 	defer db.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
