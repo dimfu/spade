@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
@@ -74,9 +75,24 @@ func Init(ctx context.Context) {
 
 	// listens to which command is being used, and do the handler
 	dg.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if i.Type == discordgo.InteractionApplicationCommand {
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
 			for _, handler := range handlers.CommandHandlers {
 				if handler.Command().Name == i.ApplicationCommandData().Name {
+					handler.Handler(dg, i)
+					return
+				}
+			}
+		case discordgo.InteractionMessageComponent:
+			for _, handler := range handlers.ComponentHandlers {
+				if strings.HasPrefix(i.MessageComponentData().CustomID, handler.Name()) {
+					handler.Handler(dg, i)
+					return
+				}
+			}
+		case discordgo.InteractionModalSubmit:
+			for _, handler := range handlers.ModalSubmitHandlers {
+				if strings.HasPrefix(i.ModalSubmitData().CustomID, handler.Name()) {
 					handler.Handler(dg, i)
 					return
 				}

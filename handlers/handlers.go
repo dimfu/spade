@@ -6,12 +6,38 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+var (
+	ERR_CREATING_TOURNAMENT  = "Something went wrong while creating tournament"
+	ERR_GENERATE_BRACKET     = "Error occured when generating tournament bracket template"
+	ERR_GET_TOURNAMENT       = "Cannot find this tournament record"
+	ERR_GET_TOURNAMENT_TYPES = "Cannot get the list of tournament types"
+)
+
 type CommandHandler interface {
 	Command() *discordgo.ApplicationCommand
 	Handler(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
+type ComponentHandler interface {
+	Name() string
+	Handler(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
+type ModalSubmitHandler interface {
+	Name() string
+	Handler(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
 type BaseAdminHandler struct{}
+
+func respond(r string, s *discordgo.Session, i *discordgo.InteractionCreate) {
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: r,
+		},
+	})
+}
 
 func (bah *BaseAdminHandler) HasPermit(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	user := i.Member
@@ -50,4 +76,12 @@ var CommandHandlers = []CommandHandler{
 	&PingHandler{},
 	&AdminHandler{},
 	&TournamentCreateHandler{base: BaseAdminHandler{}},
+}
+
+var ComponentHandlers = []ComponentHandler{
+	&TournamentComponentHandler{base: BaseAdminHandler{}},
+}
+
+var ModalSubmitHandlers = []ModalSubmitHandler{
+	&TournamentModalHandler{},
 }
