@@ -21,7 +21,7 @@ func (tch *TournamentComponentHandler) Name() string {
 func (tch *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := tch.base.HasPermit(s, i)
 	if err != nil {
-		respond(err.Error(), s, i)
+		respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -43,7 +43,7 @@ func (tch *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordg
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			respond(ERR_GET_TOURNAMENT, s, i)
+			respond(ERR_GET_TOURNAMENT, s, i, true)
 			return
 		}
 		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -79,7 +79,7 @@ func (tch *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordg
 	case "delete":
 		err := tm.Delete(id)
 		if err != nil {
-			respond(err.Error(), s, i)
+			respond(err.Error(), s, i, true)
 			return
 		}
 

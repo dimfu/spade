@@ -81,7 +81,7 @@ func (h *TournamentCreateHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	db := database.GetDB()
 	err := h.base.HasPermit(s, i)
 	if err != nil {
-		respond(err.Error(), s, i)
+		respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -98,14 +98,14 @@ func (h *TournamentCreateHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	sizeInt, err := strconv.Atoi(tt.Size)
 	if err != nil {
 		log.Println(err.Error())
-		respond(ERR_CREATING_TOURNAMENT, s, i)
+		respond(ERR_CREATING_TOURNAMENT, s, i, true)
 		return
 	}
 
 	t, err := bracket.GenerateFromTemplate(sizeInt)
 	if err != nil {
 		log.Println(err.Error())
-		respond(ERR_GENERATE_BRACKET, s, i)
+		respond(ERR_GENERATE_BRACKET, s, i, true)
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *TournamentCreateHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	stmt, err := db.Prepare(query)
 	if err != nil {
 		log.Println(err.Error())
-		respond(ERR_CREATING_TOURNAMENT, s, i)
+		respond(ERR_CREATING_TOURNAMENT, s, i, true)
 		return
 	}
 	defer stmt.Close()
@@ -129,7 +129,7 @@ func (h *TournamentCreateHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	_, err = stmt.Exec(tId, tName, tt.ID, nil, createdAt)
 	if err != nil {
 		log.Println(err.Error())
-		respond(ERR_CREATING_TOURNAMENT, s, i)
+		respond(ERR_CREATING_TOURNAMENT, s, i, true)
 		return
 	}
 

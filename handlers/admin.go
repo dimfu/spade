@@ -55,16 +55,6 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	respond := func(r string) {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: r,
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
-	}
-
 	cmd := i.ApplicationCommandData().Options
 	subcmd := data.Options[0]
 	var st *discordgo.User
@@ -74,7 +64,7 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		usrid := payload[2 : len(payload)-1]
 		u, err := s.User(usrid)
 		if err != nil {
-			respond("Cannot add invalid user, use @user to properly target user")
+			respond("Cannot add invalid user, use @user to properly target user", s, i, true)
 		}
 		st = u
 	}
@@ -93,7 +83,7 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if tm == nil {
-		respond("Can't find tournament role")
+		respond("Can't find tournament role", s, i, false)
 		return
 	}
 
@@ -115,5 +105,5 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	default:
 	}
 
-	respond(ret)
+	respond(ret, s, i, false)
 }

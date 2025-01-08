@@ -31,16 +31,17 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 	action := splitcid[1]
 	id := splitcid[2]
 
+	// TODO: add some kind of gate that prevent the non tournament owner to edit/delete
 	switch action {
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			respond(err.Error(), s, i)
+			respond(err.Error(), s, i, true)
 			return
 		}
 		t.Name = data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 		if err := tm.Update(t); err != nil {
-			respond(err.Error(), s, i)
+			respond(err.Error(), s, i, true)
 			return
 		}
 

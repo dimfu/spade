@@ -30,13 +30,19 @@ type ModalSubmitHandler interface {
 
 type BaseAdminHandler struct{}
 
-func respond(r string, s *discordgo.Session, i *discordgo.InteractionCreate) {
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+func respond(r string, s *discordgo.Session, i *discordgo.InteractionCreate, ephemeral bool) {
+	response := &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: r,
 		},
-	})
+	}
+
+	if ephemeral {
+		response.Data.Flags = discordgo.MessageFlagsEphemeral
+	}
+
+	s.InteractionRespond(i.Interaction, response)
 }
 
 func (bah *BaseAdminHandler) HasPermit(s *discordgo.Session, i *discordgo.InteractionCreate) error {
