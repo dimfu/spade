@@ -102,6 +102,12 @@ func (h *TournamentComponentHandler) start(
 		lastCount = 0
 	}
 
+	t.Has_Started = true
+	if err = tm.Update(t); err != nil {
+		log.Println(err)
+		return
+	}
+
 	currTChannel, err := s.GuildChannelCreateComplex(i.GuildID, discordgo.GuildChannelCreateData{
 		Name:     fmt.Sprintf("%04d-%s", lastCount+1, strings.Replace(t.Name, " ", "-", -1)),
 		Type:     discordgo.ChannelTypeGuildText,
