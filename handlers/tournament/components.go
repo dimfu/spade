@@ -1,4 +1,4 @@
-package handlers
+package tournament
 
 import (
 	"fmt"
@@ -8,11 +8,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/database"
+	"github.com/dimfu/spade/handlers/handler"
 	"github.com/dimfu/spade/models"
 )
 
 type TournamentComponentHandler struct {
-	base BaseAdminHandler
+	Base handler.BaseAdmin
 }
 
 func (h *TournamentComponentHandler) Name() string {
@@ -20,9 +21,9 @@ func (h *TournamentComponentHandler) Name() string {
 }
 
 func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	err := h.base.HasPermit(s, i)
+	err := h.Base.HasPermit(s, i)
 	if err != nil {
-		respond(err.Error(), s, i, true)
+		handler.Respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -31,7 +32,6 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 
 	cid := i.MessageComponentData().CustomID
 
-	// first index is the main component name, second is type of action, third is the unique id
 	splitcid := strings.Split(cid, "_")
 	action := splitcid[1]
 	id := splitcid[2]
@@ -42,14 +42,14 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			respond(ERR_GET_TOURNAMENT, s, i, true)
+			handler.Respond(handler.ERR_GET_TOURNAMENT, s, i, true)
 			return
 		}
 		h.edit(s, i, t)
 	case "delete":
 		err := tm.Delete(id)
 		if err != nil {
-			respond(err.Error(), s, i, true)
+			handler.Respond(err.Error(), s, i, true)
 			return
 		}
 		h.delete(s, i, id)
@@ -60,12 +60,12 @@ func (h *TournamentComponentHandler) start(
 	s *discordgo.Session, i *discordgo.InteractionCreate, tm *models.TournamentsModel, id string) {
 	t, err := tm.GetById(id)
 	if err != nil {
-		respond(ERR_GET_TOURNAMENT, s, i, true)
+		handler.Respond(handler.ERR_GET_TOURNAMENT, s, i, true)
 		return
 	}
 
 	if t.Has_Started {
-		respond("Tournament has already been started", s, i, true)
+		handler.Respond("Tournament has already been started", s, i, true)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *TournamentComponentHandler) start(
 		return
 	}
 
-	respond(fmt.Sprintf("Tournament: %s is now started", t.Name), s, i, true)
+	handler.Respond(fmt.Sprintf("Tournament: %s is now started", t.Name), s, i, true)
 
 	_, err = s.ChannelMessageSendEmbed(currTChannel.ID, &discordgo.MessageEmbed{
 		Title:       "Configuration",

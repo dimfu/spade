@@ -1,10 +1,11 @@
-package handlers
+package tournament
 
 import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/database"
+	"github.com/dimfu/spade/handlers/handler"
 	"github.com/dimfu/spade/models"
 )
 
@@ -35,13 +36,13 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			respond(err.Error(), s, i, true)
+			handler.Respond(err.Error(), s, i, true)
 			return
 		}
 
 		t.Name = data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 		if err := tm.Update(t); err != nil {
-			respond(err.Error(), s, i, true)
+			handler.Respond(err.Error(), s, i, true)
 			return
 		}
 

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/dimfu/spade/handlers/handler"
 )
 
 type AdminHandler struct{}
@@ -64,7 +65,7 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		usrid := payload[2 : len(payload)-1]
 		u, err := s.User(usrid)
 		if err != nil {
-			respond("Cannot add invalid user, use @user to properly target user", s, i, true)
+			handler.Respond("Cannot add invalid user, use @user to properly target user", s, i, true)
 		}
 		st = u
 	}
@@ -83,7 +84,7 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	if tm == nil {
-		respond("Can't find tournament role", s, i, false)
+		handler.Respond("Can't find tournament role", s, i, false)
 		return
 	}
 
@@ -105,5 +106,5 @@ func (p *AdminHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	default:
 	}
 
-	respond(ret, s, i, false)
+	handler.Respond(ret, s, i, false)
 }
