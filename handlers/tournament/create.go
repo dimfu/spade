@@ -14,13 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type tournamentType struct {
-	id             int
-	size           string
-	bracketType    string
-	hasThirdWinner bool
-}
-
 type tournamentChoice struct {
 	name  string
 	value int

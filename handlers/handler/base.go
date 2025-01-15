@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	ERR_CREATING_TOURNAMENT  = "Something went wrong while creating tournament"
-	ERR_GENERATE_BRACKET     = "Error occured when generating tournament bracket template"
-	ERR_GET_TOURNAMENT       = "Cannot find this tournament record"
-	ERR_GET_TOURNAMENT_TYPES = "Cannot get the list of tournament types"
+	ERR_CREATING_TOURNAMENT       = "Something went wrong while creating tournament"
+	ERR_GENERATE_BRACKET          = "Error occured when generating tournament bracket template"
+	ERR_GET_TOURNAMENT            = "Cannot find this tournament record"
+	ERR_GET_TOURNAMENT_IN_CHANNEL = "Cannot find tournament in this channel, make sure to run this command inside the tournament channel"
+	ERR_GET_TOURNAMENT_TYPES      = "Cannot get the list of tournament types"
 )
 
 type Command interface {

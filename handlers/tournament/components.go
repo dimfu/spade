@@ -175,6 +175,29 @@ func (h *TournamentComponentHandler) delete(s *discordgo.Session, i *discordgo.I
 		fmt.Println("Error deleting message:", err)
 	}
 
+	var tChannel *discordgo.Channel
+	channels, err := s.GuildChannels(i.GuildID)
+	if err != nil {
+		fmt.Println("Error deleting message:", err)
+		return
+	}
+
+	for _, channel := range channels {
+		if channel.ParentID == "tournaments" && channel.Topic == id {
+			tChannel = channel
+			break
+		}
+	}
+
+	// if there is tournament channel for this tournament, channel should be deleted.
+	if tChannel != nil {
+		_, err = s.ChannelDelete(tChannel.ID)
+		if err != nil {
+			handler.Respond(fmt.Sprintf("Cannot delete tournament channel while deleting tournament: %v", err), s, i, true)
+			return
+		}
+	}
+
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{

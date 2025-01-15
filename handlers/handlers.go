@@ -9,6 +9,7 @@ var CommandHandlers = []handler.Command{
 	&PingHandler{},
 	&AdminHandler{},
 	&tournament.TournamentCreateHandler{Base: handler.BaseAdmin{}},
+	&tournament.TournamentDeleteHandler{Base: handler.BaseAdmin{}},
 }
 
 var ComponentHandlers = []handler.Component{
