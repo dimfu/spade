@@ -113,7 +113,7 @@ func (h *TournamentComponentHandler) publish(
 		&discordgo.MessageEmbedField{Name: "Bracket Type", Value: "Single Elimination"},
 	)
 
-	_, err = s.ChannelMessageSendEmbed(thread.ID, &discordgo.MessageEmbed{
+	e, err := s.ChannelMessageSendEmbed(thread.ID, &discordgo.MessageEmbed{
 		Title:       "Configuration",
 		Description: "Available configuration for your tournament",
 		Fields:      fields,
@@ -121,6 +121,13 @@ func (h *TournamentComponentHandler) publish(
 
 	if err != nil {
 		log.Println(err)
+		return
+	}
+
+	err = s.ChannelMessagePin(thread.ID, e.ID)
+	if err != nil {
+		log.Println(err)
+		return
 	}
 
 	handler.Respond(fmt.Sprintf("Tournament <#%s> is published to the public", thread.ID), s, i, true)

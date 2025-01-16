@@ -2,6 +2,7 @@ package tournament
 
 import (
 	"database/sql"
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -82,10 +83,32 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 			return
 		}
 
-		s.ChannelMessageEditEmbed(i.ChannelID, i.Message.ID, &discordgo.MessageEmbed{
-			Title:       "Configuration",
-			Description: "Available configuration for your tournament",
-			Fields:      fields,
-		})
+		editEmbed := func(chId, msgId string) {
+			// s.ChannelMessagesPinned()
+			s.ChannelMessageEditEmbed(chId, msgId, &discordgo.MessageEmbed{
+				Title:       "Configuration",
+				Description: "Available configuration for your tournament",
+				Fields:      fields,
+			})
+		}
+
+		// update tournament embed inside the published channel
+		if t.Published {
+			msgs, err := s.ChannelMessagesPinned(t.Thread_ID.String)
+			if err != nil {
+				log.Println(err.Error())
+				return
+			}
+			var embedID string
+			for _, msg := range msgs {
+				if msg.Author.ID == s.State.User.ID && len(msg.Embeds) > 0 {
+					embedID = msg.ID
+					break
+				}
+			}
+			editEmbed(t.Thread_ID.String, embedID)
+		}
+
+		editEmbed(i.ChannelID, i.Message.ID)
 	}
 }
