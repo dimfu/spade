@@ -17,6 +17,14 @@ func (h *TournamentDeleteHandler) Command() *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        "delete",
 		Description: "Delete current tournament",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "id",
+				Description: "Tournament id (optional)",
+				Required:    false,
+			},
+		},
 	}
 }
 
@@ -30,10 +38,27 @@ func (h *TournamentDeleteHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	db := database.GetDB()
 	tm := models.NewTournamentsModel(db)
 
-	tId, err := tm.GetTournamentIDInThread(i.ChannelID)
-	if err != nil {
-		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
-		return
+	var tId []uint8
+	var targetChannel string
+
+	data := i.ApplicationCommandData()
+	providedTID := data.Options[0].StringValue()
+
+	if len(providedTID) == 0 {
+		tId, err = tm.GetTournamentIDInThread(i.ChannelID)
+		if err != nil {
+			handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+			return
+		}
+		targetChannel = i.ChannelID
+	} else {
+		tId = []uint8(providedTID)
+		t, err := tm.GetById(providedTID)
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		targetChannel = t.Thread_ID.String
 	}
 
 	_, err = tm.Delete(string(tId))
@@ -42,11 +67,14 @@ func (h *TournamentDeleteHandler) Handler(s *discordgo.Session, i *discordgo.Int
 		return
 	}
 
-	// TODO: need to delete all attendees
-
-	_, err = s.ChannelDelete(i.ChannelID)
-	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
-		return
+	if len(targetChannel) > 0 {
+		_, err = s.ChannelDelete(targetChannel)
+		if err != nil {
+			handler.Respond(err.Error(), s, i, true)
+			return
+		}
 	}
+
+	// TODO: need to delete all attendees
+	handler.Respond("Tournament successfully deleted", s, i, true)
 }

@@ -117,6 +117,9 @@ func (h *TournamentComponentHandler) publish(
 		Title:       "Configuration",
 		Description: "Available configuration for your tournament",
 		Fields:      fields,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: string(t.ID),
+		},
 	})
 
 	if err != nil {

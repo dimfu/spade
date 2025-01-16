@@ -140,6 +140,9 @@ func (h *TournamentCreateHandler) Handler(s *discordgo.Session, i *discordgo.Int
 						{Name: "Player Cap", Value: strconv.Itoa(len(t.StartingSeats))},
 						{Name: "Bracket Type", Value: "Single Elimination"},
 					},
+					Footer: &discordgo.MessageEmbedFooter{
+						Text: tId,
+					},
 				},
 			},
 			Components: []discordgo.MessageComponent{

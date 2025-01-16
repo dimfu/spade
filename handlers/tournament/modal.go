@@ -84,11 +84,13 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 		}
 
 		editEmbed := func(chId, msgId string) {
-			// s.ChannelMessagesPinned()
 			s.ChannelMessageEditEmbed(chId, msgId, &discordgo.MessageEmbed{
 				Title:       "Configuration",
 				Description: "Available configuration for your tournament",
 				Fields:      fields,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: string(t.ID),
+				},
 			})
 		}
 
