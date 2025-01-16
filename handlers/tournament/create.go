@@ -147,11 +147,11 @@ func (h *TournamentCreateHandler) Handler(s *discordgo.Session, i *discordgo.Int
 					Components: []discordgo.MessageComponent{
 						discordgo.Button{
 							Emoji: &discordgo.ComponentEmoji{
-								Name: "▶️",
+								Name: "📤",
 							},
-							Label:    "Start",
+							Label:    "Publish",
 							Style:    discordgo.SecondaryButton,
-							CustomID: fmt.Sprintf("tournament_start_%s", tId),
+							CustomID: fmt.Sprintf("tournament_publish_%s", tId),
 						},
 						discordgo.Button{
 							Emoji: &discordgo.ComponentEmoji{

@@ -30,20 +30,13 @@ func (h *TournamentDeleteHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	db := database.GetDB()
 	tm := models.NewTournamentsModel(db)
 
-	c, err := s.Channel(i.ChannelID)
-	if err != nil {
-		log.Printf("error while getting channel id: %v", err)
-		return
-	}
-
-	tId := c.Topic // tournament id as the channel topic
-	_, err = tm.GetById(tId)
+	tId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
 		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
 		return
 	}
 
-	err = tm.Delete(tId)
+	_, err = tm.Delete(string(tId))
 	if err != nil {
 		handler.Respond(err.Error(), s, i, true)
 		return

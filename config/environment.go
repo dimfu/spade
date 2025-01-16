@@ -7,12 +7,13 @@ import (
 )
 
 type Environment struct {
-	DISCORD_BOT_TOKEN string
-	DB_HOST           string
-	DB_NAME           string
-	DB_PORT           string
-	DB_USER           string
-	DB_PASSWORD       string
+	DISCORD_BOT_TOKEN     string
+	TOURNAMENT_CHANNEL_ID string
+	DB_HOST               string
+	DB_NAME               string
+	DB_PORT               string
+	DB_USER               string
+	DB_PASSWORD           string
 }
 
 var environment Environment

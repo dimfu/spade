@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS tournaments(
   id CHAR(36) PRIMARY KEY,
   name VARCHAR(128),
   tournament_types_id INT,
-  has_started BOOLEAN DEFAULT false,
+  thread_id VARCHAR(32) NULL,
+  published BOOLEAN DEFAULT false,
   starting_at DATE NULL,
   created_at BIGINT NOT NULL,
   Foreign Key (tournament_types_id) REFERENCES tournament_types(id)
