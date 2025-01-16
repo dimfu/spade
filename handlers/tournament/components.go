@@ -89,15 +89,34 @@ func (h *TournamentComponentHandler) publish(
 		return
 	}
 
+	fields := []*discordgo.MessageEmbedField{
+		{Name: "Name", Value: t.Name},
+	}
+
+	if len(t.Description.String) > 0 {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:  "Description",
+			Value: t.Description.String,
+		})
+	}
+
+	if len(t.Rules.String) > 0 {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:  "Rules",
+			Value: t.Rules.String,
+		})
+	}
+
+	fields = append(fields,
+		&discordgo.MessageEmbedField{Name: "Best Of", Value: "1"},
+		&discordgo.MessageEmbedField{Name: "Player Cap", Value: t.TournamentType.Size},
+		&discordgo.MessageEmbedField{Name: "Bracket Type", Value: "Single Elimination"},
+	)
+
 	_, err = s.ChannelMessageSendEmbed(thread.ID, &discordgo.MessageEmbed{
 		Title:       "Configuration",
 		Description: "Available configuration for your tournament",
-		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Name", Value: t.Name},
-			{Name: "Best Of", Value: "1"}, // TODO: Use dynamic value instead of hard coded value
-			{Name: "Player Cap", Value: t.TournamentType.Size},
-			{Name: "Bracket Type", Value: "Single Elimination"},
-		},
+		Fields:      fields,
 	})
 
 	if err != nil {
@@ -125,6 +144,34 @@ func (h *TournamentComponentHandler) edit(
 							MaxLength: 128,
 							MinLength: 5,
 							Value:     t.Name,
+						},
+					},
+				},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
+							CustomID:    "description",
+							Placeholder: "Describe what's this tournament all about",
+							Label:       "Description",
+							Style:       discordgo.TextInputParagraph,
+							Required:    false,
+							MaxLength:   2000,
+							MinLength:   0,
+							Value:       t.Description.String,
+						},
+					},
+				},
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.TextInput{
+							CustomID:    "rules",
+							Placeholder: "Rules if they are applicable",
+							Label:       "Rules",
+							Style:       discordgo.TextInputParagraph,
+							Required:    false,
+							MaxLength:   2000,
+							MinLength:   0,
+							Value:       t.Rules.String,
 						},
 					},
 				},

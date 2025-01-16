@@ -1,6 +1,7 @@
 package tournament
 
 import (
+	"database/sql"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -41,6 +42,41 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 		}
 
 		t.Name = data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+		description := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+		rules := data.Components[2].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+
+		fields := []*discordgo.MessageEmbedField{
+			{Name: "Name", Value: t.Name},
+		}
+
+		t.Description = sql.NullString{
+			String: description,
+			Valid:  len(description) != 0,
+		}
+		if len(description) > 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:  "Description",
+				Value: t.Description.String,
+			})
+		}
+
+		t.Rules = sql.NullString{
+			String: rules,
+			Valid:  len(rules) != 0,
+		}
+		if len(rules) > 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:  "Rules",
+				Value: t.Rules.String,
+			})
+		}
+
+		fields = append(fields,
+			&discordgo.MessageEmbedField{Name: "Best Of", Value: "1"},
+			&discordgo.MessageEmbedField{Name: "Player Cap", Value: t.TournamentType.Size},
+			&discordgo.MessageEmbedField{Name: "Bracket Type", Value: "Single Elimination"},
+		)
+
 		if err := tm.Update(t); err != nil {
 			handler.Respond(err.Error(), s, i, true)
 			return
@@ -49,12 +85,7 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 		s.ChannelMessageEditEmbed(i.ChannelID, i.Message.ID, &discordgo.MessageEmbed{
 			Title:       "Configuration",
 			Description: "Available configuration for your tournament",
-			Fields: []*discordgo.MessageEmbedField{
-				{Name: "Name", Value: t.Name},
-				{Name: "Best Of", Value: "1"},
-				{Name: "Player Cap", Value: t.TournamentType.Size},
-				{Name: "Bracket Type", Value: "Single Elimination"},
-			},
+			Fields:      fields,
 		})
 	}
 }

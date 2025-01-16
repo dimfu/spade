@@ -42,6 +42,8 @@ VALUES
 CREATE TABLE IF NOT EXISTS tournaments(
   id CHAR(36) PRIMARY KEY,
   name VARCHAR(128),
+  description TEXT NULL,
+  rules TEXT NULL,
   tournament_types_id INT,
   thread_id VARCHAR(32) NULL,
   published BOOLEAN DEFAULT false,
