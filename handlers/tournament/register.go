@@ -2,6 +2,7 @@ package tournament
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -14,8 +15,11 @@ import (
 )
 
 type TournamentRegisterHandler struct {
-	Base handler.BaseAdmin
-	db   *sql.DB
+	Base             handler.BaseAdmin
+	db               *sql.DB
+	tournamentsModel *models.TournamentsModel
+	playerModel      *models.PlayerModel
+	attendeeModel    *models.AttendeeModel
 }
 
 func (h *TournamentRegisterHandler) Command() *discordgo.ApplicationCommand {
@@ -33,12 +37,14 @@ func (h *TournamentRegisterHandler) Command() *discordgo.ApplicationCommand {
 	}
 }
 
-func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Session, i *discordgo.InteractionCreate, tx *sql.Tx) []*models.Player {
-	pm := models.NewPlayerModel(h.db)
+func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Session, tx *sql.Tx) []*models.Player {
 	validPlayers := make([]*models.Player, 0, len(inputs))
 	for _, player := range inputs {
-		discordId := player[2 : len(player)-1]
-		dMember, err := s.GuildMember(i.GuildID, discordId)
+		discordId := player
+		if strings.HasPrefix(player, "<@") {
+			discordId = player[2 : len(player)-1]
+		}
+		user, err := s.User(discordId)
 		if err != nil {
 			log.Printf("error getting guild member: %v\n", err)
 			continue
@@ -46,15 +52,15 @@ func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Sessio
 
 		var validPl *models.Player
 
-		p, err := pm.FindByDiscordId(discordId)
+		p, err := h.playerModel.FindByDiscordId(discordId)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				validPl = &models.Player{
 					ID:        []uint8(uuid.New().String()),
 					DiscordID: discordId,
-					Name:      dMember.User.Username,
+					Name:      user.Username,
 				}
-				err := pm.Insert(tx, validPl)
+				err := h.playerModel.Insert(tx, validPl)
 				if err != nil {
 					log.Println(err.Error())
 					continue
@@ -73,27 +79,65 @@ func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Sessio
 	return validPlayers
 }
 
-func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	err := h.Base.HasPermit(s, i)
-	if err != nil {
-		log.Println(err)
-		return
+func (h *TournamentRegisterHandler) register(t *models.Tournament, p []*models.Player, sr bool, tx *sql.Tx) (int64, error) {
+	var count int64
+	if sr && len(p) == 1 {
+		self, _ := h.attendeeModel.GetAttendeeById(string(t.ID), string(p[0].ID))
+		// ignoring the error cause that's what sigma does
+		if self != nil {
+			return 0, errors.New("You are already registered to this tournament.")
+		}
 	}
 
+	for _, player := range p {
+		q := `INSERT INTO attendees (tournament_id, player_id, current_seat) SELECT ?, ?, NULL
+			  	WHERE NOT EXISTS (SELECT 1 FROM attendees WHERE tournament_id = ? AND player_id = ?)`
+
+		result, err := tx.Exec(q, t.ID, player.ID, t.ID, player.ID)
+		if err != nil {
+			tx.Rollback()
+			return 0, fmt.Errorf("Error inserting player %s as attendee: %v", player.ID, err)
+		}
+		rows, _ := result.RowsAffected()
+		count += rows
+	}
+
+	return count, nil
+}
+
+func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	h.db = database.GetDB()
-	tm := models.NewTournamentsModel(h.db)
+	h.tournamentsModel = models.NewTournamentsModel(h.db)
+	h.playerModel = models.NewPlayerModel(h.db)
+	h.attendeeModel = models.NewAttendeeModel(h.db)
+
+	var inputs []string
+	selfRegister := false
 
 	data := i.ApplicationCommandData()
-	inputs := strings.Fields(data.Options[0].StringValue())
-	log.Println(inputs)
 
-	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
+	if len(data.Options) > 0 {
+		inputs = strings.Fields(data.Options[0].StringValue())
+	}
+
+	if len(inputs) > 0 {
+		err := h.Base.HasPermit(s, i)
+		if err != nil {
+			handler.Respond("Insufficent permission to add other players to this tournament.", s, i, true)
+			return
+		}
+	} else {
+		inputs = append(inputs, i.Member.User.ID)
+		selfRegister = true
+	}
+
+	tournamentId, err := h.tournamentsModel.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
 		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
 		return
 	}
 
-	t, err := tm.GetById(string(tournamentId))
+	t, err := h.tournamentsModel.GetById(string(tournamentId))
 	if err != nil {
 		handler.Respond(err.Error(), s, i, true)
 		return
@@ -105,20 +149,12 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 		return
 	}
 
-	var registeredPlayers int64
-	players := h.players(inputs, s, i, tx)
-	for _, player := range players {
-		q := `INSERT INTO attendees (tournament_id, player_id, current_seat) SELECT ?, ?, NULL
-			  	WHERE NOT EXISTS (SELECT 1 FROM attendees WHERE tournament_id = ? AND player_id = ?)`
+	players := h.players(inputs, s, tx)
+	regCount, err := h.register(t, players, selfRegister, tx)
 
-		result, err := tx.Exec(q, t.ID, player.ID, t.ID, player.ID)
-		if err != nil {
-			tx.Rollback()
-			log.Fatalf("error inserting player %s as attendee: %v", player.ID, err)
-			return
-		}
-		count, _ := result.RowsAffected()
-		registeredPlayers += count
+	if err != nil {
+		handler.Respond(err.Error(), s, i, true)
+		return
 	}
 
 	err = tx.Commit()
@@ -126,5 +162,5 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 		log.Fatalf("error committing transaction: %v", err)
 	}
 
-	handler.Respond(fmt.Sprintf("Added %d players to the tournament.", registeredPlayers), s, i, true)
+	handler.Respond(fmt.Sprintf("Added %d players to the tournament.", regCount), s, i, true)
 }

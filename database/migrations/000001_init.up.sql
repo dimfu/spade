@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS attendees(
   tournament_id CHAR(36),
   player_id CHAR(36),
   current_seat INT NULL 
+  Foreign Key (tournament_id) REFERENCES tournaments(id)
+  Foreign Key (player_id) REFERENCES players(id)
 );
 
 CREATE TABLE IF NOT EXISTS players(

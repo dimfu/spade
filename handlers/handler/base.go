@@ -76,5 +76,5 @@ func (h *BaseAdmin) HasPermit(s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 	}
 
-	return errors.New("Insufficent permission to create tournament")
+	return errors.New("Insufficent permission to use this command")
 }
