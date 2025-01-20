@@ -38,11 +38,13 @@ func (h *TournamentCreateHandler) Command() *discordgo.ApplicationCommand {
 	}
 
 	for _, tt := range t_types {
-		h.tournamentChoices = append(h.tournamentChoices,
-			tournamentChoice{
-				name: fmt.Sprintf("%v (%v players)", tt.Bracket_Type, tt.Size), value: tt.ID,
-			},
-		)
+		if tt.Has_Third_Winner {
+			h.tournamentChoices = append(h.tournamentChoices,
+				tournamentChoice{
+					name: fmt.Sprintf("%v (%v players)", tt.Bracket_Type, tt.Size), value: tt.ID,
+				},
+			)
+		}
 		h.tournamentTypes = append(h.tournamentTypes, tt)
 	}
 

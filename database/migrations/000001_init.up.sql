@@ -62,8 +62,7 @@ CREATE TABLE IF NOT EXISTS attendees(
 CREATE TABLE IF NOT EXISTS players(
   id CHAR(36) PRIMARY KEY,
   name VARCHAR(32),
-  discord_id VARCHAR(64),
-  discord_avatar VARCHAR(32)
+  discord_id VARCHAR(64) UNIQUE
 );
 
 COMMIT;

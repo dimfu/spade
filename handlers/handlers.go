@@ -10,6 +10,7 @@ var CommandHandlers = []handler.Command{
 	&AdminHandler{},
 	&tournament.TournamentCreateHandler{Base: handler.BaseAdmin{}},
 	&tournament.TournamentDeleteHandler{Base: handler.BaseAdmin{}},
+	&tournament.TournamentRegisterHandler{Base: handler.BaseAdmin{}},
 }
 
 var ComponentHandlers = []handler.Component{

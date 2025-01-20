@@ -72,8 +72,11 @@ func (tm *TournamentsModel) GetById(id string) (*Tournament, error) {
 
 	t.Published = published == 1
 
-	if err == sql.ErrNoRows {
-		return nil, errors.New(fmt.Sprintf("Could not find any record that have id of %s", id))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New(fmt.Sprintf("Could not find any record that have id of %s", id))
+		}
+		return nil, err
 	}
 
 	return t, nil
