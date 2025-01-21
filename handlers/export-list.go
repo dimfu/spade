@@ -99,7 +99,7 @@ func (h *ExportListHandler) Handler(s *discordgo.Session, i *discordgo.Interacti
 
 	for _, l := range list {
 		currSeat := strconv.Itoa(int(l.CurrentSeat.Int64))
-		data = append(data, []string{l.Player.Name, l.Player.DiscordID, currSeat})
+		data = append(data, []string{l.Player.Name, fmt.Sprintf("<@%s>", l.Player.DiscordID), currSeat})
 	}
 
 	buf, err := toCSV(data)

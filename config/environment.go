@@ -7,6 +7,7 @@ import (
 )
 
 type Environment struct {
+	ENV_MODE              string
 	DISCORD_BOT_TOKEN     string
 	TOURNAMENT_CHANNEL_ID string
 	DB_HOST               string

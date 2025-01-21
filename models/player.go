@@ -20,6 +20,18 @@ func NewPlayerModel(db *sql.DB) *PlayerModel {
 	}
 }
 
+func (m *PlayerModel) FindById(id string) (*Player, error) {
+	p := &Player{}
+	q := `SELECT id, name, discord_id FROM players WHERE id = ?`
+
+	err := m.DB.QueryRow(q, id).Scan(&p.ID, &p.Name, &p.DiscordID)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
 func (m *PlayerModel) FindByDiscordId(discordId string) (*Player, error) {
 	p := &Player{}
 	q := `SELECT id, name, discord_id FROM players WHERE discord_id = ?`

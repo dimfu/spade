@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/dimfu/spade/config"
 	"github.com/dimfu/spade/database"
 	"github.com/dimfu/spade/handlers/handler"
 	"github.com/dimfu/spade/models"
@@ -38,29 +39,37 @@ func (h *TournamentRegisterHandler) Command() *discordgo.ApplicationCommand {
 }
 
 func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Session, tx *sql.Tx) []*models.Player {
+	mode := config.GetEnv().ENV_MODE
 	validPlayers := make([]*models.Player, 0, len(inputs))
 	for _, player := range inputs {
+		var validPl *models.Player
 		discordId := player
 		if strings.HasPrefix(player, "<@") {
 			discordId = player[2 : len(player)-1]
 		}
-		user, err := s.User(discordId)
-		if err != nil {
-			log.Printf("error getting guild member: %v\n", err)
-			continue
-		}
-
-		var validPl *models.Player
 
 		p, err := h.playerModel.FindByDiscordId(discordId)
 		if err != nil {
 			if err == sql.ErrNoRows {
+				name := p.Name
+				user, err := s.User(discordId)
+				if err != nil {
+					log.Printf("error getting guild member: %v\n", err)
+					if mode == "production" {
+						continue
+					}
+				}
+
+				if user != nil {
+					name = user.Username
+				}
+
 				validPl = &models.Player{
 					ID:        []uint8(uuid.New().String()),
 					DiscordID: discordId,
-					Name:      user.Username,
+					Name:      name,
 				}
-				err := h.playerModel.Insert(tx, validPl)
+				err = h.playerModel.Insert(tx, validPl)
 				if err != nil {
 					log.Println(err.Error())
 					continue
