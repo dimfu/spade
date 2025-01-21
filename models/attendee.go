@@ -24,7 +24,7 @@ func NewAttendeeModel(db *sql.DB) *AttendeeModel {
 	}
 }
 
-func (m *AttendeeModel) GetAttendeeById(tournamentId, playerId string) (*Attendee, error) {
+func (m *AttendeeModel) FindById(tournamentId, playerId string) (*Attendee, error) {
 	a := &Attendee{}
 	q := `SELECT id, tournament_id, player_id FROM attendees WHERE tournament_id = ? AND player_id = ?`
 	err := m.DB.QueryRow(q, tournamentId, playerId).Scan(&a.Id, &a.TournamentID, &a.PlayerID)
@@ -32,6 +32,25 @@ func (m *AttendeeModel) GetAttendeeById(tournamentId, playerId string) (*Attende
 		return nil, err
 	}
 	return a, nil
+}
+
+func (m *AttendeeModel) UpdateSeat(id, seat int) error {
+	q := `UPDATE attendees SET current_seat = ? WHERE id = ?`
+	_, err := m.DB.Exec(q, seat, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *AttendeeModel) ResetSeatPos(tournamentId string) error {
+	q := `UPDATE attendees SET current_seat = NULL WHERE tournament_id = ?`
+	result, err := m.DB.Exec(q, tournamentId)
+	if err != nil {
+		return err
+	}
+	log.Println(result.RowsAffected())
+	return nil
 }
 
 func (m *AttendeeModel) List(tournamentId string, seeded bool) ([]Attendee, error) {

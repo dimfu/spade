@@ -91,7 +91,7 @@ func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Sessio
 func (h *TournamentRegisterHandler) register(t *models.Tournament, p []*models.Player, sr bool, tx *sql.Tx) (int64, error) {
 	var count int64
 	if sr && len(p) == 1 {
-		self, _ := h.attendeeModel.GetAttendeeById(string(t.ID), string(p[0].ID))
+		self, _ := h.attendeeModel.FindById(string(t.ID), string(p[0].ID))
 		// ignoring the error cause that's what sigma does
 		if self != nil {
 			return 0, errors.New("You are already registered to this tournament.")
