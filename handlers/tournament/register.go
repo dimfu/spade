@@ -16,7 +16,7 @@ import (
 )
 
 type TournamentRegisterHandler struct {
-	Base             handler.BaseAdmin
+	Base             *handler.BaseAdmin
 	db               *sql.DB
 	tournamentsModel *models.TournamentsModel
 	playerModel      *models.PlayerModel
@@ -115,6 +115,8 @@ func (h *TournamentRegisterHandler) register(t *models.Tournament, p []*models.P
 }
 
 func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	h.Base.Count++
+	log.Printf("count is %d\n", h.Base.Count)
 	h.db = database.GetDB()
 	h.tournamentsModel = models.NewTournamentsModel(h.db)
 	h.playerModel = models.NewPlayerModel(h.db)

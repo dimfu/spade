@@ -10,7 +10,7 @@ import (
 )
 
 type TournamentDeleteHandler struct {
-	Base handler.BaseAdmin
+	Base *handler.BaseAdmin
 }
 
 func (h *TournamentDeleteHandler) Command() *discordgo.ApplicationCommand {

@@ -15,7 +15,7 @@ import (
 )
 
 type TournamentComponentHandler struct {
-	Base handler.BaseAdmin
+	Base *handler.BaseAdmin
 }
 
 func (h *TournamentComponentHandler) Name() string {

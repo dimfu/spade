@@ -20,7 +20,7 @@ type tournamentChoice struct {
 }
 
 type TournamentCreateHandler struct {
-	Base              handler.BaseAdmin
+	Base              *handler.BaseAdmin
 	tournamentChoices []tournamentChoice
 	tournamentTypes   []models.TournamentType
 }

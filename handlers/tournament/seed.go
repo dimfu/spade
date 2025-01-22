@@ -15,7 +15,7 @@ import (
 )
 
 type SeedHandler struct {
-	Base handler.BaseAdmin
+	Base *handler.BaseAdmin
 	db   *sql.DB
 }
 

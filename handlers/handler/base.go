@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -12,6 +13,11 @@ var (
 	ERR_GET_TOURNAMENT            = "Cannot find this tournament record"
 	ERR_GET_TOURNAMENT_IN_CHANNEL = "Cannot find tournament in this channel, make sure to run this command inside the tournament channel"
 	ERR_GET_TOURNAMENT_TYPES      = "Cannot get the list of tournament types"
+)
+
+var (
+	instance *BaseAdmin
+	once     sync.Once
 )
 
 type Command interface {
@@ -29,7 +35,16 @@ type Modal interface {
 	Handler(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
-type BaseAdmin struct{}
+type BaseAdmin struct {
+	Count int
+}
+
+func GetBaseAdmin() *BaseAdmin {
+	once.Do(func() {
+		instance = &BaseAdmin{}
+	})
+	return instance
+}
 
 func Respond(r string, s *discordgo.Session, i *discordgo.InteractionCreate, ephemeral bool) {
 	response := &discordgo.InteractionResponse{
