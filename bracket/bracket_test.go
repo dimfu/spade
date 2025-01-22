@@ -34,6 +34,20 @@ func TestGenerate(t *testing.T) {
 
 	tests := []testCase{
 		{
+			size: 2,
+			expected: func(bt *BracketTree, t *testing.T) {
+				validateSeats(2, 3, bt.Size())
+				validateWinnerNode(bt, 2)
+			},
+		},
+		{
+			size: 4,
+			expected: func(bt *BracketTree, t *testing.T) {
+				validateSeats(4, 7, bt.Size())
+				validateWinnerNode(bt, 4)
+			},
+		},
+		{
 			size: 8,
 			expected: func(bt *BracketTree, t *testing.T) {
 				validateSeats(8, 15, bt.Size())
@@ -81,6 +95,20 @@ func TestSeedingPosition(t *testing.T) {
 	}
 
 	tests := []testCase{
+		{
+			size: templates.TOP_2,
+			expected: func(bt *BracketTree, t *testing.T) {
+				expected := []int{1, 3}
+				validateCorrectSeat(expected, bt.StartingSeats)
+			},
+		},
+		{
+			size: templates.TOP_4,
+			expected: func(bt *BracketTree, t *testing.T) {
+				expected := []int{1, 3, 5, 7}
+				validateCorrectSeat(expected, bt.StartingSeats)
+			},
+		},
 		{
 			size: templates.TOP_8,
 			expected: func(bt *BracketTree, t *testing.T) {
