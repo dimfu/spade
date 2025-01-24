@@ -20,9 +20,13 @@ func NewSeeds(payload []interface{}, strat Stragies, slot int) ([]interface{}, e
 	}
 
 	switch strat {
+	// ? should empty seat be randomized or be grouped together if possible?
 	case RANDOM:
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		for len(payload) < slot {
+			payload = append(payload, nil)
+		}
 		for i := len(payload) - 1; i >= 0; i-- {
+			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 			j := r.Intn(i + 1)
 			temp := payload[i]
 			payload[i] = payload[j]

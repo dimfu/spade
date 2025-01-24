@@ -18,18 +18,30 @@ func genParticipants(size int) []interface{} {
 }
 
 func TestRandomSeed(t *testing.T) {
-	participants := genParticipants(8)
-
-	prev := make([]interface{}, len(participants))
-	copy(prev, participants)
-
-	seeded, err := NewSeeds(participants, RANDOM, 8)
-	if err != nil {
-		t.Fatal(err)
+	type testCase struct {
+		participants []interface{}
+		slot         int
 	}
 
-	if reflect.DeepEqual(prev, seeded) {
-		t.Fatal("should be randomized")
+	tests := []testCase{
+		{participants: genParticipants(8), slot: 8},
+		{participants: genParticipants(5), slot: 8},
+		{participants: genParticipants(16), slot: 16},
+		{participants: genParticipants(12), slot: 16},
+	}
+
+	for _, tc := range tests {
+		prev := make([]interface{}, len(tc.participants))
+		copy(prev, tc.participants)
+
+		seeded, err := NewSeeds(tc.participants, RANDOM, tc.slot)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if reflect.DeepEqual(prev, seeded) {
+			t.Fatal("should be randomized")
+		}
 	}
 }
 
