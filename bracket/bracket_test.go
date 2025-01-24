@@ -228,7 +228,7 @@ func TestSimulateWinner(t *testing.T) {
 		s[i] = payload{name: fmt.Sprintf("Player %d", i+1)}
 	}
 
-	newSeeds, err := seeds.NewSeeds(s, seeds.BEST_AGAINST_WORST)
+	newSeeds, err := seeds.NewSeeds(s, seeds.BEST_AGAINST_WORST, templates.TOP_8)
 	if err != nil {
 		t.Fatal(err)
 	}

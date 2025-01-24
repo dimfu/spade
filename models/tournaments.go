@@ -39,6 +39,7 @@ func (tm *TournamentsModel) Length() (int, error) {
 	return count, nil
 }
 
+// TODO: instead of id, return the rest of the tournament props instead
 func (tm *TournamentsModel) GetTournamentIDInThread(threadID string) ([]uint8, error) {
 	var tournamentID []uint8
 	q := `SELECT id FROM tournaments WHERE thread_id = ?`

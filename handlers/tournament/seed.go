@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/bracket"
+	"github.com/dimfu/spade/bracket/seeds"
 	"github.com/dimfu/spade/database"
 	"github.com/dimfu/spade/handlers/handler"
 	"github.com/dimfu/spade/models"
@@ -104,8 +105,18 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
+	var playersInterface []interface{}
+	for _, player := range players {
+		playersInterface = append(playersInterface, player)
+	}
+	seeds, err := seeds.NewSeeds(playersInterface, seeds.BEST_AGAINST_WORST, tSize)
+
 	var countSuccess int
-	for i, player := range players {
+	for i, seed := range seeds {
+		if seed == nil {
+			continue
+		}
+		player := seed.(string)
 		discordId := player
 		if strings.HasPrefix(player, "<@") {
 			discordId = player[2 : len(player)-1]

@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	ERR_INTERNAL_ERROR            = "Something went wrong while executing this instruction"
 	ERR_CREATING_TOURNAMENT       = "Something went wrong while creating tournament"
 	ERR_GENERATE_BRACKET          = "Error occured when generating tournament bracket template"
 	ERR_GET_TOURNAMENT            = "Cannot find this tournament record"

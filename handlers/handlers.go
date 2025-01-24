@@ -13,6 +13,7 @@ var CommandHandlers = []handler.Command{
 	&tournament.TournamentRegisterHandler{Base: handler.GetBaseAdmin()},
 	&tournament.ExportListHandler{Base: handler.GetBaseAdmin()},
 	&tournament.SeedHandler{Base: handler.GetBaseAdmin()},
+	&tournament.StartHandler{Base: *handler.GetBaseAdmin()},
 }
 
 var ComponentHandlers = []handler.Component{

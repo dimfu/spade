@@ -51,8 +51,6 @@ func (h *ExportListHandler) Command() *discordgo.ApplicationCommand {
 }
 
 func (h *ExportListHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	h.Base.Count++
-	log.Printf("count is %d\n", h.Base.Count)
 	h.db = database.GetDB()
 	err := h.Base.HasPermit(s, i)
 	if err != nil {

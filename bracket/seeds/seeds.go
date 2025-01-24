@@ -14,7 +14,7 @@ const (
 	SIMILAR_SKILL
 )
 
-func NewSeeds(payload []interface{}, strat Stragies) ([]interface{}, error) {
+func NewSeeds(payload []interface{}, strat Stragies, slot int) ([]interface{}, error) {
 	if len(payload) <= 0 {
 		return nil, errors.New("payload cannot be 0 or less")
 	}
@@ -31,6 +31,10 @@ func NewSeeds(payload []interface{}, strat Stragies) ([]interface{}, error) {
 		break
 	case BEST_AGAINST_WORST:
 		var temp interface{}
+		for len(payload) < slot {
+			payload = append(payload, nil)
+		}
+
 		for i := 1; i < len(payload)/2; i += 2 {
 			temp = payload[i]
 			payload[i] = payload[len(payload)-i]
