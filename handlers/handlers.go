@@ -1,25 +1,25 @@
 package handlers
 
 import (
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/handlers/tournament"
 )
 
-var CommandHandlers = []handler.Command{
+var CommandHandlers = []base.Command{
 	&PingHandler{},
 	&AdminHandler{},
-	&tournament.TournamentCreateHandler{Base: handler.GetBaseAdmin()},
-	&tournament.TournamentDeleteHandler{Base: handler.GetBaseAdmin()},
-	&tournament.TournamentRegisterHandler{Base: handler.GetBaseAdmin()},
-	&tournament.ExportListHandler{Base: handler.GetBaseAdmin()},
-	&tournament.SeedHandler{Base: handler.GetBaseAdmin()},
-	&tournament.StartHandler{Base: *handler.GetBaseAdmin()},
+	&tournament.TournamentCreateHandler{Base: base.GetBaseAdmin()},
+	&tournament.TournamentDeleteHandler{Base: base.GetBaseAdmin()},
+	&tournament.TournamentRegisterHandler{Base: base.GetBaseAdmin()},
+	&tournament.ExportListHandler{Base: base.GetBaseAdmin()},
+	&tournament.SeedHandler{Base: base.GetBaseAdmin()},
+	&tournament.StartHandler{Base: *base.GetBaseAdmin()},
 }
 
-var ComponentHandlers = []handler.Component{
-	&tournament.TournamentComponentHandler{Base: handler.GetBaseAdmin()},
+var ComponentHandlers = []base.Component{
+	&tournament.TournamentComponentHandler{Base: base.GetBaseAdmin()},
 }
 
-var ModalSubmitHandlers = []handler.Modal{
+var ModalSubmitHandlers = []base.Modal{
 	&tournament.TournamentModalHandler{},
 }

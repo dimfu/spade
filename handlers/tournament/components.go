@@ -10,12 +10,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
 	"github.com/dimfu/spade/database"
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 )
 
 type TournamentComponentHandler struct {
-	Base *handler.BaseAdmin
+	Base *base.BaseAdmin
 }
 
 func (h *TournamentComponentHandler) Name() string {
@@ -25,7 +25,7 @@ func (h *TournamentComponentHandler) Name() string {
 func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := h.Base.HasPermit(s, i)
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			handler.Respond(handler.ERR_GET_TOURNAMENT, s, i, true)
+			base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
 			return
 		}
 		h.edit(s, i, t)
@@ -58,12 +58,12 @@ func (h *TournamentComponentHandler) publish(
 	cfg := config.GetEnv()
 	t, err := tm.GetById(id)
 	if err != nil {
-		handler.Respond(handler.ERR_GET_TOURNAMENT, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
 		return
 	}
 
 	if t.Published {
-		handler.Respond("Tournament has already been published", s, i, true)
+		base.Respond("Tournament has already been published", s, i, true)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *TournamentComponentHandler) publish(
 
 	if err != nil {
 		log.Println(err)
-		handler.Respond("Failed to create thread for the tournament", s, i, true)
+		base.Respond("Failed to create thread for the tournament", s, i, true)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *TournamentComponentHandler) publish(
 		return
 	}
 
-	handler.Respond(fmt.Sprintf("Tournament <#%s> is published to the public", thread.ID), s, i, true)
+	base.Respond(fmt.Sprintf("Tournament <#%s> is published to the public", thread.ID), s, i, true)
 }
 
 func (h *TournamentComponentHandler) edit(
@@ -205,14 +205,14 @@ func (h *TournamentComponentHandler) delete(s *discordgo.Session, i *discordgo.I
 	var threadID sql.NullString
 	t, err := tm.Delete(id)
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 	}
 
 	threadID = t.Thread_ID
 	if t != nil && threadID.Valid {
 		_, err = s.ChannelDelete(threadID.String)
 		if err != nil {
-			handler.Respond(fmt.Sprintf("Cannot delete tournament channel while deleting tournament: %v", err), s, i, true)
+			base.Respond(fmt.Sprintf("Cannot delete tournament channel while deleting tournament: %v", err), s, i, true)
 		}
 	}
 

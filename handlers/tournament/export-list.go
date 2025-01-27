@@ -10,12 +10,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/database"
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 )
 
 type ExportListHandler struct {
-	Base *handler.BaseAdmin
+	Base *base.BaseAdmin
 	db   *sql.DB
 }
 
@@ -54,14 +54,14 @@ func (h *ExportListHandler) Handler(s *discordgo.Session, i *discordgo.Interacti
 	h.db = database.GetDB()
 	err := h.Base.HasPermit(s, i)
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 		return
 	}
 
 	tm := models.NewTournamentsModel(h.db)
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
 		return
 	}
 
@@ -88,12 +88,12 @@ func (h *ExportListHandler) Handler(s *discordgo.Session, i *discordgo.Interacti
 	list, err := am.List(string(tournamentId), seeded)
 	if err != nil {
 		log.Println(err.Error())
-		handler.Respond("Cannot extract participants list", s, i, true)
+		base.Respond("Cannot extract participants list", s, i, true)
 		return
 	}
 
 	if len(list) == 0 {
-		handler.Respond("No records to print", s, i, true)
+		base.Respond("No records to print", s, i, true)
 		return
 	}
 

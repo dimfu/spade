@@ -11,12 +11,12 @@ import (
 	"github.com/dimfu/spade/bracket"
 	"github.com/dimfu/spade/bracket/seeds"
 	"github.com/dimfu/spade/database"
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 )
 
 type SeedHandler struct {
-	Base *handler.BaseAdmin
+	Base *base.BaseAdmin
 	db   *sql.DB
 }
 
@@ -38,7 +38,7 @@ func (h *SeedHandler) Command() *discordgo.ApplicationCommand {
 func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := h.Base.HasPermit(s, i)
 	if err != nil {
-		handler.Respond("Insufficent permission to seed other players to this tournament.", s, i, true)
+		base.Respond("Insufficent permission to seed other players to this tournament.", s, i, true)
 		return
 	}
 
@@ -50,19 +50,19 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 	data := i.ApplicationCommandData()
 
 	if len(data.Options) == 0 {
-		handler.Respond("You need atleast seed 1 player to this tournament", s, i, true)
+		base.Respond("You need atleast seed 1 player to this tournament", s, i, true)
 		return
 	}
 
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
 		return
 	}
 
 	t, err := tm.GetById(string(tournamentId))
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 	var errMsg string
 	defer func() {
 		if errMsg != "" {
-			handler.Respond("Something went wrong while seeding players", s, i, true)
+			base.Respond("Something went wrong while seeding players", s, i, true)
 		}
 	}()
 
@@ -146,5 +146,5 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	handler.Respond(fmt.Sprintf("Successfully seeded %d players", countSuccess), s, i, true)
+	base.Respond(fmt.Sprintf("Successfully seeded %d players", countSuccess), s, i, true)
 }

@@ -10,13 +10,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
 	"github.com/dimfu/spade/database"
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 	"github.com/google/uuid"
 )
 
 type TournamentRegisterHandler struct {
-	Base             *handler.BaseAdmin
+	Base             *base.BaseAdmin
 	db               *sql.DB
 	tournamentsModel *models.TournamentsModel
 	playerModel      *models.PlayerModel
@@ -132,7 +132,7 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 	if len(inputs) > 0 {
 		err := h.Base.HasPermit(s, i)
 		if err != nil {
-			handler.Respond("Insufficent permission to add other players to this tournament.", s, i, true)
+			base.Respond("Insufficent permission to add other players to this tournament.", s, i, true)
 			return
 		}
 	} else {
@@ -142,13 +142,13 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 
 	tournamentId, err := h.tournamentsModel.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
 		return
 	}
 
 	t, err := h.tournamentsModel.GetById(string(tournamentId))
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -162,7 +162,7 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 	regCount, err := h.register(t, players, selfRegister, tx)
 
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -171,5 +171,5 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 		log.Fatalf("error committing transaction: %v", err)
 	}
 
-	handler.Respond(fmt.Sprintf("Added %d players to the tournament.", regCount), s, i, true)
+	base.Respond(fmt.Sprintf("Added %d players to the tournament.", regCount), s, i, true)
 }

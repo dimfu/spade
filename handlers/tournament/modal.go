@@ -7,7 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/database"
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 )
 
@@ -38,7 +38,7 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			handler.Respond(err.Error(), s, i, true)
+			base.Respond(err.Error(), s, i, true)
 			return
 		}
 
@@ -79,7 +79,7 @@ func (h *TournamentModalHandler) Handler(s *discordgo.Session, i *discordgo.Inte
 		)
 
 		if err := tm.Update(t); err != nil {
-			handler.Respond(err.Error(), s, i, true)
+			base.Respond(err.Error(), s, i, true)
 			return
 		}
 

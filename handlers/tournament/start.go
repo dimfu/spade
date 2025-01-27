@@ -13,12 +13,12 @@ import (
 	"github.com/dimfu/spade/bracket/seeds"
 	"github.com/dimfu/spade/bracket/templates"
 	"github.com/dimfu/spade/database"
-	"github.com/dimfu/spade/handlers/handler"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 )
 
 type StartHandler struct {
-	Base          handler.BaseAdmin
+	Base          base.BaseAdmin
 	db            *sql.DB
 	attendeeModel *models.AttendeeModel
 }
@@ -33,7 +33,7 @@ func (h *StartHandler) Command() *discordgo.ApplicationCommand {
 func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := h.Base.HasPermit(s, i)
 	if err != nil {
-		handler.Respond(err.Error(), s, i, true)
+		base.Respond(err.Error(), s, i, true)
 		return
 	}
 
@@ -45,26 +45,26 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
 		log.Println(err)
-		handler.Respond(handler.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
 		return
 	}
 
 	tournament, err := tm.GetById(string(tournamentId))
 	if err != nil {
 		log.Println(err)
-		handler.Respond(handler.ERR_GET_TOURNAMENT, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
 		return
 	}
 
 	attendees, err := h.attendeeModel.List(string(tournamentId), false)
 	if err != nil {
 		log.Println(err)
-		handler.Respond(handler.ERR_INTERNAL_ERROR, s, i, true)
+		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 		return
 	}
 
 	if len(attendees) == 0 {
-		handler.Respond("Not enough seed to start the tournament", s, i, true)
+		base.Respond("Not enough seed to start the tournament", s, i, true)
 		return
 	}
 
@@ -130,13 +130,13 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 			minSize = int(math.Min(float64(minSize), float64(size)))
 		}
 		if minSize > len(seatedAttendees) {
-			handler.Respond(fmt.Sprintf("Can't start tournament, you need at least %d seeded players to start", bracketSize), s, i, true)
+			base.Respond(fmt.Sprintf("Can't start tournament, you need at least %d seeded players to start", bracketSize), s, i, true)
 			return
 		}
 
 		tournamentTypes, err := ttm.List()
 		if err != nil {
-			handler.Respond(handler.ERR_INTERNAL_ERROR, s, i, true)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 			log.Printf("error while getting tournament types, %v", err)
 			return
 		}
@@ -153,7 +153,7 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 
 		tournament.Tournament_Types_ID = newTType
 		if err = tm.Update(tournament); err != nil {
-			handler.Respond(handler.ERR_INTERNAL_ERROR, s, i, true)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 			log.Printf("error while updating tournament %v\n", err)
 			return
 		}
@@ -162,19 +162,19 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	// re-adjust the seat positions according to new bracket size if needed
 	if shouldReseed || randomize {
 		if err = h.reseed(attendees, strategy, bracketSize); err != nil {
-			handler.Respond("Something went wrong when re-adjusting seat position", s, i, true)
+			base.Respond("Something went wrong when re-adjusting seat position", s, i, true)
 			log.Println(err)
 			return
 		}
 	}
 
 	if err = tx.Commit(); err != nil {
-		handler.Respond(handler.ERR_INTERNAL_ERROR, s, i, true)
+		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 		log.Println(err)
 		return
 	}
 
-	handler.Respond(fmt.Sprintf("%d size is suited", bracketSize), s, i, true)
+	base.Respond(fmt.Sprintf("%d size is suited", bracketSize), s, i, true)
 	// TODO: post current match embed maybe? also make a queue for the next matches for this tournament so after once match is finish we immediately post the next embed without looking up to db
 }
 
