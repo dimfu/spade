@@ -1,6 +1,7 @@
 package tournament
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -14,13 +15,20 @@ import (
 	"github.com/dimfu/spade/bracket/templates"
 	"github.com/dimfu/spade/database"
 	"github.com/dimfu/spade/handlers/base"
+	"github.com/dimfu/spade/handlers/queue"
 	"github.com/dimfu/spade/models"
 )
 
 type StartHandler struct {
 	Base          base.BaseAdmin
+	MatchQueue    queue.MatchQueue
+	ctx           context.Context
 	db            *sql.DB
 	attendeeModel *models.AttendeeModel
+}
+
+func (h *StartHandler) WithCtx(ctx context.Context) {
+	h.ctx = ctx
 }
 
 func (h *StartHandler) Command() *discordgo.ApplicationCommand {
@@ -98,6 +106,8 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	var prevSize, nextMinSize int
 	sg := make(map[int]int)
 
+	prevSize = sizes[0]
+
 	for _, size := range sizes {
 		if size == tSize {
 			nextMinSize = prevSize
@@ -117,7 +127,8 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	bracketSize := tSize
 
 	// handle if attendees count is way lower than the current used bracket size
-	if nextMinSize > len(seatedAttendees) {
+	if nextMinSize >= len(seatedAttendees) {
+		log.Println("readjusting")
 		shouldReseed = true // should reseed because we change the bracket size
 		minGap := math.MaxInt64
 		minSize := math.MaxInt64
@@ -159,9 +170,16 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 	}
 
+	bracket, err := bracket.GenerateFromTemplate(bracketSize)
+	if err != nil {
+		log.Printf("error while generating bracket %v\n", err)
+		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+		return
+	}
+
 	// re-adjust the seat positions according to new bracket size if needed
 	if shouldReseed || randomize {
-		if err = h.reseed(attendees, strategy, bracketSize); err != nil {
+		if err = h.reseed(bracket, attendees, strategy); err != nil {
 			base.Respond("Something went wrong when re-adjusting seat position", s, i, true)
 			log.Println(err)
 			return
@@ -174,22 +192,33 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	base.Respond(fmt.Sprintf("%d size is suited", bracketSize), s, i, true)
-	// TODO: post current match embed maybe? also make a queue for the next matches for this tournament so after once match is finish we immediately post the next embed without looking up to db
-}
-
-func (h *StartHandler) reseed(attendees []models.Attendee, strategy seeds.Stragies, bracketSize int) error {
-	bracket, err := bracket.GenerateFromTemplate(bracketSize)
+	// TODO: should skip all the operations above if the tournament is already started before
+	attendees, err = h.attendeeModel.List(string(tournamentId), false)
 	if err != nil {
-		return err
+		log.Println(err)
+		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+		return
 	}
 
+	matches := h.generateMatches(bracket, attendees)
+	go h.MatchQueue.Start(string(tournamentId), bracket, matches, h.ctx, func(match models.Match) {
+		// TODO: update winner node to the next bracket based on the template provided
+		s.ChannelMessageSendEmbed(i.ChannelID, &discordgo.MessageEmbed{
+			Title:       "Match", // TODO: add round count
+			Description: fmt.Sprintf("%v vs %v", match.P1.CurrentSeat, match.P2.CurrentSeat),
+			// TODO: add buttons to determine which node advances to the next bracket
+			// TODO: also clear queue for that tournament_id when clicking the button
+		})
+	})
+}
+
+func (h *StartHandler) reseed(bracket *bracket.BracketTree, attendees []models.Attendee, strategy seeds.Stragies) error {
 	var attendeesInterface []interface{}
 	for _, a := range attendees {
 		attendeesInterface = append(attendeesInterface, a)
 	}
 
-	seeds, err := seeds.NewSeeds(attendeesInterface, strategy, bracketSize)
+	seeds, err := seeds.NewSeeds(attendeesInterface, strategy, len(bracket.StartingSeats))
 	if err != nil {
 		return err
 	}
@@ -211,4 +240,23 @@ func (h *StartHandler) reseed(attendees []models.Attendee, strategy seeds.Stragi
 		}
 	}
 	return nil
+}
+
+func (h *StartHandler) generateMatches(bracket *bracket.BracketTree, attendees []models.Attendee) []*models.Match {
+	matches := make([]*models.Match, 0, len(attendees)/2)
+	for i := 0; i < len(bracket.StartingSeats)-1; i += 2 {
+		var match models.Match
+		for j := 0; j < len(attendees); j++ {
+			if bracket.StartingSeats[i] == int(attendees[j].CurrentSeat.Int64) {
+				match.P1 = &attendees[j]
+			}
+			if bracket.StartingSeats[i+1] == int(attendees[j].CurrentSeat.Int64) {
+				match.P2 = &attendees[j]
+			}
+		}
+		if match.P1 != nil && match.P2 != nil {
+			matches = append(matches, &match)
+		}
+	}
+	return matches
 }

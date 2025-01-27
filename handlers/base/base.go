@@ -1,6 +1,7 @@
 package base
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -24,6 +25,11 @@ var (
 type Command interface {
 	Command() *discordgo.ApplicationCommand
 	Handler(s *discordgo.Session, i *discordgo.InteractionCreate)
+}
+
+type CommandWithCtx interface {
+	Command
+	WithCtx(ctx context.Context)
 }
 
 type Component interface {

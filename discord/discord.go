@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
 	"github.com/dimfu/spade/handlers"
+	"github.com/dimfu/spade/handlers/base"
 )
 
 func ensureRole(dg *discordgo.Session, gid string) (*discordgo.Role, error) {
@@ -79,6 +80,10 @@ func Init(ctx context.Context) {
 		case discordgo.InteractionApplicationCommand:
 			for _, handler := range handlers.CommandHandlers {
 				if handler.Command().Name == i.ApplicationCommandData().Name {
+					if hWithCtx, ok := handler.(base.CommandWithCtx); ok {
+						log.Printf("handler %s is with context", hWithCtx.Command().Name)
+						hWithCtx.WithCtx(ctx)
+					}
 					handler.Handler(dg, i)
 					return
 				}

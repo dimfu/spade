@@ -144,6 +144,7 @@ func TestSeedingPosition(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			log.Println(bt.StartingSeats)
 			tc.expected(bt, t)
 		})
 	}

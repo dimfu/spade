@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/dimfu/spade/handlers/base"
+	"github.com/dimfu/spade/handlers/queue"
 	"github.com/dimfu/spade/handlers/tournament"
 )
 
@@ -13,7 +14,10 @@ var CommandHandlers = []base.Command{
 	&tournament.TournamentRegisterHandler{Base: base.GetBaseAdmin()},
 	&tournament.ExportListHandler{Base: base.GetBaseAdmin()},
 	&tournament.SeedHandler{Base: base.GetBaseAdmin()},
-	&tournament.StartHandler{Base: *base.GetBaseAdmin()},
+	&tournament.StartHandler{
+		Base:       *base.GetBaseAdmin(),
+		MatchQueue: *queue.GetMatchQueue(),
+	},
 }
 
 var ComponentHandlers = []base.Component{
