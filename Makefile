@@ -20,5 +20,3 @@ seed:
 	else \
 		cat ./database/seeds/$(file) | docker exec -i db mysql -u root -p$(MYSQL_ROOT_PASSWORD) spade; \
 	fi
-
-.PHONY: run, up, stop, db-shell

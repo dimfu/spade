@@ -21,7 +21,7 @@ var CommandHandlers = []base.Command{
 }
 
 var ComponentHandlers = []base.Component{
-	&tournament.TournamentComponentHandler{Base: base.GetBaseAdmin()},
+	&tournament.TournamentComponentHandler{Base: base.GetBaseAdmin(), MatchQueue: queue.GetMatchQueue()},
 }
 
 var ModalSubmitHandlers = []base.Modal{

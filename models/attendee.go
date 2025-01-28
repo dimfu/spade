@@ -14,6 +14,11 @@ type Attendee struct {
 	Tournament   Tournament
 }
 
+type AttendeeWithResult struct {
+	Attendee
+	Result int
+}
+
 type AttendeeModel struct {
 	DB *sql.DB
 }

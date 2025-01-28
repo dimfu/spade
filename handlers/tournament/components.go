@@ -5,17 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
 	"github.com/dimfu/spade/database"
 	"github.com/dimfu/spade/handlers/base"
+	"github.com/dimfu/spade/handlers/queue"
 	"github.com/dimfu/spade/models"
 )
 
 type TournamentComponentHandler struct {
-	Base *base.BaseAdmin
+	Base       *base.BaseAdmin
+	MatchQueue *queue.MatchQueue
 }
 
 func (h *TournamentComponentHandler) Name() string {
@@ -31,8 +34,17 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 
 	db := database.GetDB()
 	tm := models.NewTournamentsModel(db)
+	mhm := models.NewMatchHistoryModel(db)
 
 	cid := i.MessageComponentData().CustomID
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Println(err)
+		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+		return
+	}
+	defer tx.Rollback()
 
 	splitcid := strings.Split(cid, "_")
 	action := splitcid[1]
@@ -50,6 +62,45 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 		h.edit(s, i, t)
 	case "delete":
 		h.delete(s, i, tm, id)
+	case "setwinner":
+		attendeeID, _ := strconv.Atoi(splitcid[3])
+		currentSeat, _ := strconv.Atoi(splitcid[4])
+		err := mhm.Insert(tx, &models.History{
+			AttendeeID: attendeeID,
+			Seat: sql.NullInt64{
+				Int64: int64(currentSeat),
+				Valid: true,
+			},
+			Result: 1,
+		})
+		if err != nil {
+			log.Println(err)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			return
+		}
+		if err = h.MatchQueue.Remove(id, attendeeID); err != nil {
+			log.Println(err)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			return
+		}
+		err = tx.Commit()
+		if err != nil {
+			log.Println(err)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			return
+		}
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+
+		if err != nil {
+			log.Println("Failed to acknowledge interaction:", err)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			return
+		}
+	default:
+		base.Respond("Action not listed", s, i, true)
+		return
 	}
 }
 

@@ -14,7 +14,7 @@ type Tournament struct {
 	Tournament_Types_ID int
 	Thread_ID           sql.NullString
 	Published           bool
-	Starting_At         sql.NullString
+	Starting_At         sql.NullInt64
 	Created_At          string
 	TournamentType      TournamentType
 }

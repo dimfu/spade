@@ -47,24 +47,35 @@ CREATE TABLE IF NOT EXISTS tournaments(
   tournament_types_id INT,
   thread_id VARCHAR(32) NULL,
   published BOOLEAN DEFAULT false,
-  starting_at DATE NULL,
+  starting_at BIGINT NULL,
   created_at BIGINT NOT NULL,
-  Foreign Key (tournament_types_id) REFERENCES tournament_types(id)
-);
-
-CREATE TABLE IF NOT EXISTS attendees(
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  tournament_id CHAR(36),
-  player_id CHAR(36),
-  current_seat INT NULL 
-  Foreign Key (tournament_id) REFERENCES tournaments(id)
-  Foreign Key (player_id) REFERENCES players(id)
+  FOREIGN KEY (tournament_types_id) REFERENCES tournament_types(id)
 );
 
 CREATE TABLE IF NOT EXISTS players(
   id CHAR(36) PRIMARY KEY,
   name VARCHAR(32),
   discord_id VARCHAR(64) UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS attendees(
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tournament_id CHAR(36),
+  player_id CHAR(36),
+  current_seat INT NULL,
+  FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
+  FOREIGN KEY (player_id) REFERENCES players(id),
+  INDEX idx_tournament_id (tournament_id)
+);
+
+CREATE TABLE IF NOT EXISTS match_histories(
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  attendee_id INT,
+  result TINYINT DEFAULT 0,
+  seat INT NULL,
+  created_at BIGINT NULL,
+  FOREIGN KEY (attendee_id) REFERENCES attendees(id),
+  INDEX idx_attendee_id (attendee_id)
 );
 
 COMMIT;

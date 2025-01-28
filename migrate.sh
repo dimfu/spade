@@ -37,7 +37,7 @@ case "$DIRECTION" in
         echo "y" | docker run --rm -v "$MIGRATION_PATH" --network "$NETWORK" "$DOCKER_IMAGE" \
             -path=/migrations \
             -database "mysql://$DB_USER:$DB_PASSWORD@tcp($DB_HOST:$DB_PORT)/$DB_NAME" \
-            -verbose down -all
+            -verbose down 1
         ;;
     *)
         echo "Error: Invalid direction. Use 'migrate-up' or 'migrate-down'."

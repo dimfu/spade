@@ -3,11 +3,13 @@ package tournament
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/bracket"
@@ -63,6 +65,27 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
 		return
 	}
+	tSize, _ := strconv.Atoi(tournament.TournamentType.Size)
+
+	// if tournament has been already started before, it should skip all checks below.
+	if tournament.Starting_At.Valid {
+		bracket, err := bracket.GenerateFromTemplate(tSize)
+		if err != nil {
+			log.Printf("error while generating bracket %v\n", err)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			return
+		}
+		err = h.start(tournamentId, bracket, func(match models.Match) {
+			h.buildEmbed(s, i, match)
+		})
+		if err != nil {
+			log.Printf("Error when starting tournament %v\n", err)
+			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			return
+		}
+		base.Respond("Tournament has already been started, resuming with previous result.", s, i, true)
+		return
+	}
 
 	attendees, err := h.attendeeModel.List(string(tournamentId), false)
 	if err != nil {
@@ -96,7 +119,6 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		strategy = seeds.RANDOM
 	}
 
-	tSize, _ := strconv.Atoi(tournament.TournamentType.Size)
 	sizes := make([]int, 0, len(templates.Templates))
 	for k := range templates.Templates {
 		sizes = append(sizes, k)
@@ -193,23 +215,16 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 
 	// TODO: should skip all the operations above if the tournament is already started before
-	attendees, err = h.attendeeModel.List(string(tournamentId), false)
+	err = h.start(tournamentId, bracket, func(match models.Match) {
+		h.buildEmbed(s, i, match)
+	})
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error when starting tournament %v\n", err)
 		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 		return
 	}
 
-	matches := h.generateMatches(bracket, attendees)
-	go h.MatchQueue.Start(string(tournamentId), bracket, matches, h.ctx, func(match models.Match) {
-		// TODO: update winner node to the next bracket based on the template provided
-		s.ChannelMessageSendEmbed(i.ChannelID, &discordgo.MessageEmbed{
-			Title:       "Match", // TODO: add round count
-			Description: fmt.Sprintf("%v vs %v", match.P1.CurrentSeat, match.P2.CurrentSeat),
-			// TODO: add buttons to determine which node advances to the next bracket
-			// TODO: also clear queue for that tournament_id when clicking the button
-		})
-	})
+	base.Respond("Tournament is now started", s, i, false)
 }
 
 func (h *StartHandler) reseed(bracket *bracket.BracketTree, attendees []models.Attendee, strategy seeds.Stragies) error {
@@ -222,6 +237,7 @@ func (h *StartHandler) reseed(bracket *bracket.BracketTree, attendees []models.A
 	if err != nil {
 		return err
 	}
+	seeds = seeds[0:len(bracket.StartingSeats)] // make sure we limit seed to bracket size
 
 	for seat, seed := range seeds {
 		if seed == nil {
@@ -242,21 +258,171 @@ func (h *StartHandler) reseed(bracket *bracket.BracketTree, attendees []models.A
 	return nil
 }
 
-func (h *StartHandler) generateMatches(bracket *bracket.BracketTree, attendees []models.Attendee) []*models.Match {
-	matches := make([]*models.Match, 0, len(attendees)/2)
-	for i := 0; i < len(bracket.StartingSeats)-1; i += 2 {
+func (h *StartHandler) assertPayload(node *bracket.Node) (*models.AttendeeWithResult, error) {
+	payload, ok := node.Payload.(models.AttendeeWithResult)
+	if !ok {
+		return nil, errors.New("payload must be AttendeeWithStatus")
+	}
+	return &payload, nil
+}
+
+func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.AttendeeWithResult, r int) ([]*models.Match, error) {
+	nodes, err := b.NodesInRound(r)
+	if err != nil {
+		return nil, err
+	}
+	matches := make([]*models.Match, 0, len(nodes)/2)
+	for i := 0; i < len(nodes)-1; i += 2 {
+		var finished bool
 		var match models.Match
-		for j := 0; j < len(attendees); j++ {
-			if bracket.StartingSeats[i] == int(attendees[j].CurrentSeat.Int64) {
-				match.P1 = &attendees[j]
+		for j := 0; j < len(a); j++ {
+			if nodes[i].Position == int(a[j].CurrentSeat.Int64) {
+				if node, err := b.Search(nodes[i].Position); err == nil {
+					payload, err := h.assertPayload(node)
+					if err != nil {
+						return nil, err
+					}
+					if payload.Result > 0 {
+						finished = true
+					}
+					match.P1 = node
+				}
 			}
-			if bracket.StartingSeats[i+1] == int(attendees[j].CurrentSeat.Int64) {
-				match.P2 = &attendees[j]
+			if nodes[i+1].Position == int(a[j].CurrentSeat.Int64) {
+				if node, err := b.Search(nodes[i+1].Position); err == nil {
+					payload, err := h.assertPayload(node)
+					if err != nil {
+						return nil, err
+					}
+					if payload.Result > 0 {
+						finished = true
+					}
+					match.P2 = node
+				}
 			}
 		}
-		if match.P1 != nil && match.P2 != nil {
-			matches = append(matches, &match)
+		if finished {
+			continue
+		}
+		matches = append(matches, &match)
+	}
+	return matches, nil
+}
+
+func (h *StartHandler) InsertPayload(bt *bracket.BracketTree, s int, a models.Attendee, result int) (*models.AttendeeWithResult, error) {
+	node, err := bt.Search(s)
+	if err != nil {
+		return nil, err
+	}
+	attendee := models.AttendeeWithResult{Attendee: a, Result: result}
+	node.Payload = attendee
+	return &attendee, nil
+}
+
+func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree, callback func(match models.Match)) error {
+	now := time.Now().Unix()
+	_, err := h.db.Exec("UPDATE tournaments SET starting_at = IFNULL(starting_at, ?) WHERE id = ?", now, tournamentId)
+	if err != nil {
+		return err
+	}
+
+	mhm := models.NewMatchHistoryModel(h.db)
+	currentTournament, err := mhm.CurrentTournamentHistory(tournamentId)
+	if err != nil {
+		return err
+	}
+
+	attendeeWithStatus := make([]models.AttendeeWithResult, 0, len(currentTournament))
+	for _, c := range currentTournament {
+		// insert current position
+		attendee, err := h.InsertPayload(bracket, int(c.Attendee.CurrentSeat.Int64), c.Attendee, 0)
+		if err != nil {
+			return err
+		}
+		attendeeWithStatus = append(attendeeWithStatus, *attendee)
+
+		// insert previous positions to the bracket if exists
+		for _, history := range c.Histories {
+			attendee, err := h.InsertPayload(bracket, int(history.Seat.Int64), c.Attendee, history.Result)
+			if err != nil {
+				return err
+			}
+			attendeeWithStatus = append(attendeeWithStatus, *attendee)
 		}
 	}
-	return matches
+
+	// TODO: update round if current bracket depth is cleared
+	r := 1
+	var matches []*models.Match
+	for {
+		matches, err = h.generateMatches(bracket, attendeeWithStatus, r)
+		if err != nil {
+			return err
+		}
+
+		if len(matches) > 0 || r == len(bracket.SeatRoundPos) {
+			// TODO: if r == last round it should check for winner
+			break
+		}
+
+		r++
+		if r > len(bracket.SeatRoundPos) {
+			return errors.New("Round out ouf bounds")
+		}
+	}
+	go h.MatchQueue.Start(string(tournamentId), bracket, matches, h.ctx, func(match models.Match) {
+		callback(match)
+	})
+	return nil
+}
+
+func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, m models.Match) {
+	var p1, p2 models.AttendeeWithResult
+	pairs := make([]models.AttendeeWithResult, 0, 2)
+
+	if m.P1 != nil {
+		if payload, ok := m.P1.Payload.(models.AttendeeWithResult); ok {
+			p1 = payload
+			pairs = append(pairs, payload)
+		}
+	} else {
+		p1.Player.Name = "N/A"
+	}
+
+	if m.P2 != nil {
+		if payload, ok := m.P2.Payload.(models.AttendeeWithResult); ok {
+			p2 = payload
+			pairs = append(pairs, payload)
+		}
+	} else {
+		p2.Player.Name = "N/A"
+	}
+
+	buttons := make([]discordgo.MessageComponent, 0, len(pairs))
+	for _, payload := range pairs {
+		buttons = append(buttons, discordgo.Button{
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "✅",
+			},
+			Label:    fmt.Sprintf("%v Wins", payload.Player.Name),
+			Style:    discordgo.SecondaryButton,
+			CustomID: fmt.Sprintf("tournament_setwinner_%s_%d_%d", payload.TournamentID, payload.Attendee.Id, payload.CurrentSeat.Int64),
+		})
+	}
+
+	_, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+		Embed: &discordgo.MessageEmbed{
+			Title:       "Match", // TODO: add round count
+			Description: fmt.Sprintf("%v vs %v", p1.Player.Name, p2.Player.Name),
+		},
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: buttons,
+			},
+		},
+	})
+
+	if err != nil {
+		fmt.Println("Error sending message:", err)
+	}
 }
