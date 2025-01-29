@@ -78,7 +78,7 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 			return
 		}
-		if err = h.MatchQueue.Remove(id, attendeeID); err != nil {
+		if err = h.MatchQueue.Remove(tx, id, attendeeID); err != nil {
 			log.Println(err)
 			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 			return

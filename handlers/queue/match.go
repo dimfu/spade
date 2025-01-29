@@ -2,13 +2,15 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log"
+	"reflect"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/dimfu/spade/bracket"
-	"github.com/dimfu/spade/database"
 	"github.com/dimfu/spade/models"
 )
 
@@ -18,6 +20,7 @@ type MatchQueue struct {
 	matches  map[string][]*models.Match
 	queue    map[string][]*models.Match
 	running  map[string]context.CancelFunc
+	wg       map[string]*sync.WaitGroup
 	mutex    sync.Mutex
 }
 
@@ -33,6 +36,7 @@ func GetMatchQueue() *MatchQueue {
 			brackets: make(map[string]*bracket.BracketTree),
 			matches:  make(map[string][]*models.Match),
 			queue:    make(map[string][]*models.Match),
+			wg:       map[string]*sync.WaitGroup{},
 			running:  map[string]context.CancelFunc{},
 		}
 	})
@@ -72,30 +76,97 @@ func (q *MatchQueue) ClearQueue(tournamentID string) error {
 	return nil
 }
 
-func (q *MatchQueue) Remove(tournamentID string, winnerID int) error {
+func (q *MatchQueue) Move(tournamentId string, a models.AttendeeWithResult) error {
+	bracket, ok := q.brackets[tournamentId]
+	if !ok {
+		return errors.New("could not find tournament bracket")
+	}
+	node, err := bracket.Search(int(a.CurrentSeat.Int64))
+	if err != nil {
+		return err
+	}
+
+	attendee := models.AttendeeWithResult{Attendee: a.Attendee, Result: 0}
+	node.Payload = attendee
+	return nil
+}
+
+func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error {
 	now := time.Now().Unix()
-	db := database.GetDB()
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
+
 	items, ok := q.queue[tournamentID]
-	if !ok && len(items) == 0 {
+	if !ok || len(items) == 0 {
 		return errors.New("cannot find tournament key in queue")
 	}
 
+	wg, ok := q.wg[tournamentID]
+	if !ok {
+		q.mutex.Unlock()
+		return errors.New("tournament already completed")
+	}
+	defer wg.Done()
+
 	popped := items[0]
-	match := []*bracket.Node{popped.P1, popped.P2}
+	match := make(map[int]*bracket.Node)
+	currSeats := []int{}
+
+	if popped.P1 != nil {
+		match[popped.P1.Position] = popped.P1
+		currSeats = append(currSeats, popped.P1.Position)
+	}
+
+	if popped.P2 != nil {
+		match[popped.P2.Position] = popped.P2
+		currSeats = append(currSeats, popped.P2.Position)
+	}
+
+	if len(currSeats) == 0 {
+		return errors.New("both P1 and P2 are nil")
+	}
+
+	b, ok := q.brackets[tournamentID]
+	if !ok {
+		return errors.New("cannot find bracket with this tournament id")
+	}
+
+	winnerTo := -1
+	for _, match := range b.Matches {
+		matchSeats := []int{match.Seats[0], match.Seats[1]}
+		sort.Ints(matchSeats)
+		if reflect.DeepEqual(currSeats, matchSeats) {
+			winnerTo = match.WinnerTo
+			break
+		}
+	}
+
 	for _, p := range match {
 		attendee, ok := p.Payload.(models.AttendeeWithResult)
 		if !ok {
 			return errors.New("payload is not AttendeeWithResult")
 		}
 		if attendee.Id != winnerID {
-			q := `INSERT INTO match_histories (attendee_id, result, seat, created_at) VALUES (?, ?, ?, ?)`
-			_, err := db.Exec(q, attendee.Id, 0, attendee.CurrentSeat.Int64, now)
+			query := `INSERT INTO match_histories (attendee_id, result, seat, created_at) VALUES (?, ?, ?, ?)`
+			_, err := tx.Exec(query, attendee.Id, 0, attendee.CurrentSeat.Int64, now)
 			if err != nil {
 				return err
 			}
 			break
+		} else {
+			log.Println("winner to >", winnerTo)
+			if winnerTo == -1 {
+				//? maybe check for bracket winner?
+				continue
+			}
+			query := `UPDATE attendees SET current_seat = ? WHERE id = ?`
+			_, err := tx.Exec(query, winnerTo, attendee.Id)
+			if err != nil {
+				return err
+			}
+			if err := q.Move(tournamentID, attendee); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -119,8 +190,11 @@ func (q *MatchQueue) Start(
 	newCtx, cancel := context.WithCancel(ctx)
 	q.running[tournamentID] = cancel
 
+	var wg sync.WaitGroup
+	q.wg[tournamentID] = &wg
 	q.matches[tournamentID] = matches
 	q.brackets[tournamentID] = bracket
+	q.wg[tournamentID].Add(len(q.matches[tournamentID]))
 
 	q.mutex.Unlock()
 
@@ -142,7 +216,11 @@ func (q *MatchQueue) Start(
 			post(*match)
 		}
 		q.mutex.Lock()
+		q.wg[tournamentID].Wait()
 		delete(q.running, tournamentID)
+		delete(q.queue, tournamentID)
+		delete(q.wg, tournamentID)
+		cancel()
 		q.mutex.Unlock()
 	}()
 

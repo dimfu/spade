@@ -16,7 +16,8 @@ type Attendee struct {
 
 type AttendeeWithResult struct {
 	Attendee
-	Result int
+	Result    int
+	Completed bool
 }
 
 type AttendeeModel struct {

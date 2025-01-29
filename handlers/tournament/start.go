@@ -267,13 +267,14 @@ func (h *StartHandler) assertPayload(node *bracket.Node) (*models.AttendeeWithRe
 }
 
 func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.AttendeeWithResult, r int) ([]*models.Match, error) {
+	// test
 	nodes, err := b.NodesInRound(r)
 	if err != nil {
 		return nil, err
 	}
 	matches := make([]*models.Match, 0, len(nodes)/2)
 	for i := 0; i < len(nodes)-1; i += 2 {
-		var finished bool
+		var completed bool
 		var match models.Match
 		for j := 0; j < len(a); j++ {
 			if nodes[i].Position == int(a[j].CurrentSeat.Int64) {
@@ -282,8 +283,8 @@ func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.Attend
 					if err != nil {
 						return nil, err
 					}
-					if payload.Result > 0 {
-						finished = true
+					if payload.Completed {
+						completed = true
 					}
 					match.P1 = node
 				}
@@ -294,14 +295,14 @@ func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.Attend
 					if err != nil {
 						return nil, err
 					}
-					if payload.Result > 0 {
-						finished = true
+					if payload.Completed {
+						completed = true
 					}
 					match.P2 = node
 				}
 			}
 		}
-		if finished {
+		if completed {
 			continue
 		}
 		matches = append(matches, &match)
@@ -309,12 +310,12 @@ func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.Attend
 	return matches, nil
 }
 
-func (h *StartHandler) InsertPayload(bt *bracket.BracketTree, s int, a models.Attendee, result int) (*models.AttendeeWithResult, error) {
+func (h *StartHandler) InsertPayload(bt *bracket.BracketTree, s int, a models.Attendee, result int, completed bool) (*models.AttendeeWithResult, error) {
 	node, err := bt.Search(s)
 	if err != nil {
 		return nil, err
 	}
-	attendee := models.AttendeeWithResult{Attendee: a, Result: result}
+	attendee := models.AttendeeWithResult{Attendee: a, Result: result, Completed: completed}
 	node.Payload = attendee
 	return &attendee, nil
 }
@@ -335,7 +336,7 @@ func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree,
 	attendeeWithStatus := make([]models.AttendeeWithResult, 0, len(currentTournament))
 	for _, c := range currentTournament {
 		// insert current position
-		attendee, err := h.InsertPayload(bracket, int(c.Attendee.CurrentSeat.Int64), c.Attendee, 0)
+		attendee, err := h.InsertPayload(bracket, int(c.Attendee.CurrentSeat.Int64), c.Attendee, 0, false)
 		if err != nil {
 			return err
 		}
@@ -343,7 +344,7 @@ func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree,
 
 		// insert previous positions to the bracket if exists
 		for _, history := range c.Histories {
-			attendee, err := h.InsertPayload(bracket, int(history.Seat.Int64), c.Attendee, history.Result)
+			attendee, err := h.InsertPayload(bracket, int(history.Seat.Int64), c.Attendee, history.Result, true)
 			if err != nil {
 				return err
 			}
