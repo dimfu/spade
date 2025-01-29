@@ -76,17 +76,18 @@ func (q *MatchQueue) ClearQueue(tournamentID string) error {
 	return nil
 }
 
-func (q *MatchQueue) Move(tournamentId string, a models.AttendeeWithResult) error {
+func (q *MatchQueue) Move(tournamentId string, a models.AttendeeWithResult, to int) error {
 	bracket, ok := q.brackets[tournamentId]
 	if !ok {
 		return errors.New("could not find tournament bracket")
 	}
-	node, err := bracket.Search(int(a.CurrentSeat.Int64))
+
+	node, err := bracket.Search(to)
 	if err != nil {
 		return err
 	}
 
-	attendee := models.AttendeeWithResult{Attendee: a.Attendee, Result: 0}
+	attendee := models.AttendeeWithResult{Attendee: a.Attendee, Result: 0, Completed: false}
 	node.Payload = attendee
 	return nil
 }
@@ -152,19 +153,19 @@ func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error
 			if err != nil {
 				return err
 			}
-			break
 		} else {
-			log.Println("winner to >", winnerTo)
-			if winnerTo == -1 {
-				//? maybe check for bracket winner?
-				continue
+			if winnerTo == q.brackets[tournamentID].Root.Position {
+				// TODO: handle winner with what discord embed, but how... lol
+				log.Println("Found a winner!")
+				break
 			}
 			query := `UPDATE attendees SET current_seat = ? WHERE id = ?`
 			_, err := tx.Exec(query, winnerTo, attendee.Id)
 			if err != nil {
 				return err
 			}
-			if err := q.Move(tournamentID, attendee); err != nil {
+
+			if err := q.Move(tournamentID, attendee, winnerTo); err != nil {
 				return err
 			}
 		}
@@ -195,11 +196,10 @@ func (q *MatchQueue) Start(
 	q.matches[tournamentID] = matches
 	q.brackets[tournamentID] = bracket
 	q.wg[tournamentID].Add(len(q.matches[tournamentID]))
-
 	q.mutex.Unlock()
 
 	go func() {
-		for _, match := range q.matches[tournamentID] {
+		for _, currMatch := range q.matches[tournamentID] {
 			q.cond.L.Lock()
 			if len(q.queue[tournamentID]) == 1 {
 				if err := q.WaitWithContext(ctx); err != nil {
@@ -211,6 +211,15 @@ func (q *MatchQueue) Start(
 					panic(err)
 				}
 			}
+
+			match := &models.Match{}
+			if p1, err := q.brackets[tournamentID].Search(currMatch.P1.Position); err == nil {
+				match.P1 = p1
+			}
+			if p2, err := q.brackets[tournamentID].Search(currMatch.P2.Position); err == nil {
+				match.P2 = p2
+			}
+
 			q.queue[tournamentID] = append(q.queue[tournamentID], match)
 			q.cond.L.Unlock()
 			post(*match)

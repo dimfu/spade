@@ -81,7 +81,6 @@ func Init(ctx context.Context) {
 			for _, handler := range handlers.CommandHandlers {
 				if handler.Command().Name == i.ApplicationCommandData().Name {
 					if hWithCtx, ok := handler.(base.CommandWithCtx); ok {
-						log.Printf("handler %s is with context", hWithCtx.Command().Name)
 						hWithCtx.WithCtx(ctx)
 					}
 					handler.Handler(dg, i)

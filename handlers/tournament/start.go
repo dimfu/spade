@@ -174,7 +174,6 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 			return
 		}
 
-		// TODO: update current tournament bracket size to be `bracketSize`
 		var newTType int
 		for _, tt := range tournamentTypes {
 			size, _ := strconv.Atoi(tt.Size)
@@ -214,7 +213,6 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	// TODO: should skip all the operations above if the tournament is already started before
 	err = h.start(tournamentId, bracket, func(match models.Match) {
 		h.buildEmbed(s, i, match)
 	})
@@ -266,8 +264,7 @@ func (h *StartHandler) assertPayload(node *bracket.Node) (*models.AttendeeWithRe
 	return &payload, nil
 }
 
-func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.AttendeeWithResult, r int) ([]*models.Match, error) {
-	// test
+func (h *StartHandler) generateMatches(b *bracket.BracketTree, r int) ([]*models.Match, error) {
 	nodes, err := b.NodesInRound(r)
 	if err != nil {
 		return nil, err
@@ -275,33 +272,26 @@ func (h *StartHandler) generateMatches(b *bracket.BracketTree, a []models.Attend
 	matches := make([]*models.Match, 0, len(nodes)/2)
 	for i := 0; i < len(nodes)-1; i += 2 {
 		var completed bool
-		var match models.Match
-		for j := 0; j < len(a); j++ {
-			if nodes[i].Position == int(a[j].CurrentSeat.Int64) {
-				if node, err := b.Search(nodes[i].Position); err == nil {
-					payload, err := h.assertPayload(node)
-					if err != nil {
-						return nil, err
-					}
-					if payload.Completed {
-						completed = true
-					}
-					match.P1 = node
+		match := models.Match{P1: &bracket.Node{}, P2: &bracket.Node{}}
+
+		if p1, err := b.Search(nodes[i].Position); err == nil {
+			if payload, err := h.assertPayload(p1); err == nil {
+				if payload.Completed {
+					completed = true
 				}
 			}
-			if nodes[i+1].Position == int(a[j].CurrentSeat.Int64) {
-				if node, err := b.Search(nodes[i+1].Position); err == nil {
-					payload, err := h.assertPayload(node)
-					if err != nil {
-						return nil, err
-					}
-					if payload.Completed {
-						completed = true
-					}
-					match.P2 = node
-				}
-			}
+			match.P1 = p1
 		}
+
+		if p2, err := b.Search(nodes[i+1].Position); err == nil {
+			if payload, err := h.assertPayload(p2); err == nil {
+				if payload.Completed {
+					completed = true
+				}
+			}
+			match.P2 = p2
+		}
+
 		if completed {
 			continue
 		}
@@ -352,25 +342,22 @@ func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree,
 		}
 	}
 
-	// TODO: update round if current bracket depth is cleared
 	r := 1
-	var matches []*models.Match
+	matches := []*models.Match{}
 	for {
-		matches, err = h.generateMatches(bracket, attendeeWithStatus, r)
+		matchesInRound, err := h.generateMatches(bracket, r)
 		if err != nil {
 			return err
 		}
+		matches = append(matches, matchesInRound...)
 
-		if len(matches) > 0 || r == len(bracket.SeatRoundPos) {
-			// TODO: if r == last round it should check for winner
+		if r == len(bracket.SeatRoundPos) {
 			break
 		}
 
 		r++
-		if r > len(bracket.SeatRoundPos) {
-			return errors.New("Round out ouf bounds")
-		}
 	}
+
 	go h.MatchQueue.Start(string(tournamentId), bracket, matches, h.ctx, func(match models.Match) {
 		callback(match)
 	})
