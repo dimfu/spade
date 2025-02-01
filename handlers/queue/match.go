@@ -15,7 +15,7 @@ import (
 )
 
 type MatchQueue struct {
-	cond     *sync.Cond
+	conds    map[string]*sync.Cond
 	brackets map[string]*bracket.BracketTree
 	matches  map[string][]*models.Match
 	queue    map[string][]*models.Match
@@ -32,7 +32,7 @@ var (
 func GetMatchQueue() *MatchQueue {
 	once.Do(func() {
 		instance = &MatchQueue{
-			cond:     sync.NewCond(&sync.Mutex{}),
+			conds:    make(map[string]*sync.Cond),
 			brackets: make(map[string]*bracket.BracketTree),
 			matches:  make(map[string][]*models.Match),
 			queue:    make(map[string][]*models.Match),
@@ -43,33 +43,20 @@ func GetMatchQueue() *MatchQueue {
 	return instance
 }
 
-func (q *MatchQueue) WaitWithContext(ctx context.Context) error {
-	done := make(chan struct{})
-	go func() {
-		q.cond.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+func (q *MatchQueue) cleanup(tournamentID string) {
+	delete(q.queue, tournamentID)
+	delete(q.wg, tournamentID)
+	delete(q.brackets, tournamentID)
 }
 
 func (q *MatchQueue) ClearQueue(tournamentID string) error {
-	q.mutex.Lock()
-	defer q.mutex.Unlock()
-
-	if cancelFunc, running := q.running[tournamentID]; running {
+	if cancelFunc, exists := q.running[tournamentID]; exists {
 		cancelFunc()
-		delete(q.running, tournamentID)
 	}
-
-	delete(q.queue, tournamentID)
-	delete(q.brackets, tournamentID)
-	delete(q.wg, tournamentID)
+	if cond, exists := q.conds[tournamentID]; exists {
+		cond.Broadcast()
+	}
+	q.cleanup(tournamentID)
 	return nil
 }
 
@@ -91,8 +78,6 @@ func (q *MatchQueue) Move(tournamentId string, a models.AttendeeWithResult, to i
 
 func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error {
 	now := time.Now().Unix()
-	q.cond.L.Lock()
-	defer q.cond.L.Unlock()
 
 	items, ok := q.queue[tournamentID]
 	if !ok || len(items) == 0 {
@@ -169,7 +154,7 @@ func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error
 	}
 
 	q.queue[tournamentID] = q.queue[tournamentID][1:]
-	q.cond.Signal()
+	q.conds[tournamentID].Signal()
 	return nil
 }
 
@@ -180,13 +165,14 @@ func (q *MatchQueue) Start(
 ) error {
 	q.mutex.Lock()
 
-	if cancelFunc, running := q.running[tournamentID]; running {
-		cancelFunc()
+	if _, running := q.running[tournamentID]; running {
 		q.ClearQueue(tournamentID)
 	}
 
-	newCtx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(ctx)
 	q.running[tournamentID] = cancel
+
+	q.conds[tournamentID] = sync.NewCond(&sync.Mutex{})
 
 	var wg sync.WaitGroup
 	q.wg[tournamentID] = &wg
@@ -195,18 +181,17 @@ func (q *MatchQueue) Start(
 	q.wg[tournamentID].Add(len(q.matches[tournamentID]))
 	q.mutex.Unlock()
 
-	go func() {
+	go func(ctx context.Context) {
 		for _, currMatch := range q.matches[tournamentID] {
-			q.cond.L.Lock()
+			q.conds[tournamentID].L.Lock()
 			if len(q.queue[tournamentID]) == 1 {
-				if err := q.WaitWithContext(ctx); err != nil {
-					q.cond.L.Unlock()
-					if newCtx.Err() == context.Canceled {
-						log.Println(err)
-						return
-					}
-					panic(err)
-				}
+				q.conds[tournamentID].Wait()
+			}
+
+			select {
+			case <-ctx.Done(): // should early return if the tournament is restarting
+				return
+			default:
 			}
 
 			match := &models.Match{}
@@ -218,17 +203,14 @@ func (q *MatchQueue) Start(
 			}
 
 			q.queue[tournamentID] = append(q.queue[tournamentID], match)
-			q.cond.L.Unlock()
 			post(*match)
+			q.conds[tournamentID].L.Unlock()
 		}
-		q.mutex.Lock()
+
 		q.wg[tournamentID].Wait()
-		delete(q.running, tournamentID)
-		delete(q.queue, tournamentID)
-		delete(q.wg, tournamentID)
-		cancel()
-		q.mutex.Unlock()
-	}()
+		q.cleanup(tournamentID)
+		delete(q.conds, tournamentID)
+	}(cancelCtx)
 
 	return nil
 }

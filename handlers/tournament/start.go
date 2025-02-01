@@ -150,7 +150,6 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 
 	// handle if attendees count is way lower than the current used bracket size
 	if nextMinSize >= len(seatedAttendees) {
-		log.Println("readjusting")
 		shouldReseed = true // should reseed because we change the bracket size
 		minGap := math.MaxInt64
 		minSize := math.MaxInt64

@@ -51,15 +51,21 @@ func (h *TournamentRegisterHandler) players(inputs []string, s *discordgo.Sessio
 		p, err := h.playerModel.FindByDiscordId(discordId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				name := p.Name
+				var name string
+
+				// set dummy data name to be their dummy name, lol
+				if p != nil {
+					name = p.Name
+				}
+
+				// handle discord member registration
 				user, err := s.User(discordId)
 				if err != nil {
 					log.Printf("error getting guild member: %v\n", err)
 					if mode == "production" {
-						continue
+						continue // this allows dummy data to be registered, idk if i should keep this code
 					}
 				}
-
 				if user != nil {
 					name = user.Username
 				}
