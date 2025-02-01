@@ -15,8 +15,12 @@ var CommandHandlers = []base.Command{
 	&tournament.ExportListHandler{Base: base.GetBaseAdmin()},
 	&tournament.SeedHandler{Base: base.GetBaseAdmin()},
 	&tournament.StartHandler{
-		Base:       *base.GetBaseAdmin(),
-		MatchQueue: *queue.GetMatchQueue(),
+		Base:       base.GetBaseAdmin(),
+		MatchQueue: queue.GetMatchQueue(),
+	},
+	&tournament.RestartTournamentHandler{
+		Base:       base.GetBaseAdmin(),
+		MatchQueue: queue.GetMatchQueue(),
 	},
 }
 

@@ -62,17 +62,14 @@ func (q *MatchQueue) ClearQueue(tournamentID string) error {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	_, ok := q.queue[tournamentID]
-	if !ok {
-		return errors.New("cannot find tournament key in queue")
-	}
-
 	if cancelFunc, running := q.running[tournamentID]; running {
 		cancelFunc()
 		delete(q.running, tournamentID)
 	}
 
-	q.queue[tournamentID] = []*models.Match{}
+	delete(q.queue, tournamentID)
+	delete(q.brackets, tournamentID)
+	delete(q.wg, tournamentID)
 	return nil
 }
 

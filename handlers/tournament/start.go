@@ -22,8 +22,8 @@ import (
 )
 
 type StartHandler struct {
-	Base          base.BaseAdmin
-	MatchQueue    queue.MatchQueue
+	Base          *base.BaseAdmin
+	MatchQueue    *queue.MatchQueue
 	ctx           context.Context
 	db            *sql.DB
 	attendeeModel *models.AttendeeModel
@@ -248,7 +248,7 @@ func (h *StartHandler) reseed(bracket *bracket.BracketTree, attendees []models.A
 			continue
 		}
 
-		err = h.attendeeModel.UpdateSeat(attendee.Id, bracket.StartingSeats[seat])
+		err = h.attendeeModel.StartingSeat(attendee.Id, bracket.StartingSeats[seat])
 		if err != nil {
 			return err
 		}

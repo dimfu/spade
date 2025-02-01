@@ -9,6 +9,7 @@ type Attendee struct {
 	Id           int
 	TournamentID string
 	PlayerID     string
+	StartingSeat sql.NullInt64
 	CurrentSeat  sql.NullInt64
 	Player       Player
 	Tournament   Tournament
@@ -40,13 +41,10 @@ func (m *AttendeeModel) FindById(tournamentId, playerId string) (*Attendee, erro
 	return a, nil
 }
 
-func (m *AttendeeModel) UpdateSeat(id, seat int) error {
-	q := `UPDATE attendees SET current_seat = ? WHERE id = ?`
-	_, err := m.DB.Exec(q, seat, id)
-	if err != nil {
-		return err
-	}
-	return nil
+func (m *AttendeeModel) StartingSeat(id, seat int) error {
+	q := `UPDATE attendees SET current_seat = ?, starting_seat = ? WHERE id = ?`
+	_, err := m.DB.Exec(q, seat, seat, id)
+	return err
 }
 
 func (m *AttendeeModel) ResetSeatPos(tournamentId string) error {

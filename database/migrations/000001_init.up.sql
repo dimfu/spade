@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS attendees(
   id INT AUTO_INCREMENT PRIMARY KEY,
   tournament_id CHAR(36),
   player_id CHAR(36),
+  starting_seat INT NULL,
   current_seat INT NULL,
   FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
   FOREIGN KEY (player_id) REFERENCES players(id),

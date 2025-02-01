@@ -133,7 +133,7 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 			return
 		}
 
-		err = am.UpdateSeat(a.Id, bracket.StartingSeats[i])
+		err = am.StartingSeat(a.Id, bracket.StartingSeats[i])
 		if err != nil {
 			errMsg = fmt.Sprintf("error updating seat position %v", err)
 			return
