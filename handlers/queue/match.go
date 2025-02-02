@@ -2,15 +2,13 @@ package queue
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"log"
 	"reflect"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/dimfu/spade/bracket"
+	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/models"
 )
 
@@ -22,6 +20,12 @@ type MatchQueue struct {
 	running  map[string]context.CancelFunc
 	wg       map[string]*sync.WaitGroup
 	mutex    sync.Mutex
+}
+
+type MatchResult struct {
+	Winner   *models.AttendeeWithResult
+	Loser    *models.AttendeeWithResult
+	WinnerTo *int
 }
 
 var (
@@ -76,18 +80,18 @@ func (q *MatchQueue) Move(tournamentId string, a models.AttendeeWithResult, to i
 	return nil
 }
 
-func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error {
-	now := time.Now().Unix()
+func (q *MatchQueue) Result(tournamentID string, winnerID int) (*MatchResult, error) {
+	result := &MatchResult{}
 
 	items, ok := q.queue[tournamentID]
 	if !ok || len(items) == 0 {
-		return errors.New("cannot find tournament key in queue")
+		return nil, errors.New("cannot find tournament key in queue")
 	}
 
 	wg, ok := q.wg[tournamentID]
 	if !ok {
 		q.mutex.Unlock()
-		return errors.New("tournament already completed")
+		return nil, errors.New("tournament already completed")
 	}
 	defer wg.Done()
 
@@ -106,12 +110,12 @@ func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error
 	}
 
 	if len(currSeats) == 0 {
-		return errors.New("both P1 and P2 are nil")
+		return nil, errors.New("both P1 and P2 are nil")
 	}
 
 	b, ok := q.brackets[tournamentID]
 	if !ok {
-		return errors.New("cannot find bracket with this tournament id")
+		return nil, errors.New("cannot find bracket with this tournament id")
 	}
 
 	winnerTo := -1
@@ -127,35 +131,22 @@ func (q *MatchQueue) Remove(tx *sql.Tx, tournamentID string, winnerID int) error
 	for _, p := range match {
 		attendee, ok := p.Payload.(models.AttendeeWithResult)
 		if !ok {
-			return errors.New("payload is not AttendeeWithResult")
+			return nil, errors.New("payload is not AttendeeWithResult")
 		}
 		if attendee.Id != winnerID {
-			query := `INSERT INTO match_histories (attendee_id, result, seat, created_at) VALUES (?, ?, ?, ?)`
-			_, err := tx.Exec(query, attendee.Id, 0, attendee.CurrentSeat.Int64, now)
-			if err != nil {
-				return err
-			}
+			result.Loser = &attendee
 		} else {
+			result.WinnerTo = &winnerTo
+			result.Winner = &attendee
 			if winnerTo == q.brackets[tournamentID].Root.Position {
-				// TODO: handle winner with what discord embed, but how... lol
-				log.Println("Found a winner!")
-				break
-			}
-			query := `UPDATE attendees SET current_seat = ? WHERE id = ?`
-			_, err := tx.Exec(query, winnerTo, attendee.Id)
-			if err != nil {
-				return err
-			}
-
-			if err := q.Move(tournamentID, attendee, winnerTo); err != nil {
-				return err
+				return result, base.ERR_FOUND_TOURNAMENT_WINNER
 			}
 		}
 	}
 
 	q.queue[tournamentID] = q.queue[tournamentID][1:]
 	q.conds[tournamentID].Signal()
-	return nil
+	return result, nil
 }
 
 func (q *MatchQueue) Start(

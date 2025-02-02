@@ -16,6 +16,7 @@ import (
 	"github.com/dimfu/spade/bracket/seeds"
 	"github.com/dimfu/spade/bracket/templates"
 	"github.com/dimfu/spade/database"
+	"github.com/dimfu/spade/discord/components"
 	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/handlers/queue"
 	"github.com/dimfu/spade/models"
@@ -393,15 +394,14 @@ func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.Interaction
 			},
 			Label:    fmt.Sprintf("%v Wins", payload.Player.Name),
 			Style:    discordgo.SecondaryButton,
-			CustomID: fmt.Sprintf("tournament_setwinner_%s_%d_%d", payload.TournamentID, payload.Attendee.Id, payload.CurrentSeat.Int64),
+			CustomID: fmt.Sprintf("tournament_processresult_%s_%d_%d", payload.TournamentID, payload.Attendee.Id, payload.CurrentSeat.Int64),
 		})
 	}
-
 	_, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Embed: &discordgo.MessageEmbed{
-			Title:       "Match", // TODO: add round count
-			Description: fmt.Sprintf("%v vs %v", p1.Player.Name, p2.Player.Name),
-		},
+		Embed: components.MatchupEmbed(components.MatchupPayload{
+			P1: p1.Player.Name,
+			P2: p2.Player.Name,
+		}),
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: buttons,

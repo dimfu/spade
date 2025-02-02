@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
@@ -19,6 +20,7 @@ import (
 type TournamentComponentHandler struct {
 	Base       *base.BaseAdmin
 	MatchQueue *queue.MatchQueue
+	db         *sql.DB
 }
 
 func (h *TournamentComponentHandler) Name() string {
@@ -32,19 +34,10 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 		return
 	}
 
-	db := database.GetDB()
-	tm := models.NewTournamentsModel(db)
-	mhm := models.NewMatchHistoryModel(db)
+	h.db = database.GetDB()
+	tm := models.NewTournamentsModel(h.db)
 
 	cid := i.MessageComponentData().CustomID
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Println(err)
-		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
-		return
-	}
-	defer tx.Rollback()
 
 	splitcid := strings.Split(cid, "_")
 	action := splitcid[1]
@@ -62,40 +55,43 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 		h.edit(s, i, t)
 	case "delete":
 		h.delete(s, i, tm, id)
-	case "setwinner":
-		attendeeID, _ := strconv.Atoi(splitcid[3])
-		currentSeat, _ := strconv.Atoi(splitcid[4])
-		err := mhm.Insert(tx, &models.History{
-			AttendeeID: attendeeID,
-			Seat: sql.NullInt64{
-				Int64: int64(currentSeat),
-				Valid: true,
-			},
-			Result: 1,
-		})
+	case "processresult":
+		tx, err := h.db.Begin()
 		if err != nil {
 			log.Println(err)
 			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 			return
 		}
-		if err = h.MatchQueue.Remove(tx, id, attendeeID); err != nil {
-			log.Println(err)
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
-			return
-		}
-		err = tx.Commit()
-		if err != nil {
-			log.Println(err)
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
-			return
-		}
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		})
+		defer tx.Rollback()
 
+		attendeeID, _ := strconv.Atoi(splitcid[3])
+
+		// current winner seat, not the next seat for this attendee
+		winnerSeat, _ := strconv.Atoi(splitcid[4])
+		result, err := h.processResult(tx, id, attendeeID, winnerSeat)
 		if err != nil {
-			log.Println("Failed to acknowledge interaction:", err)
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			if errors.Is(err, base.ERR_FOUND_TOURNAMENT_WINNER) {
+				if result.Winner != nil {
+					if err := h.UpdateMatchEmbed(s, i); err != nil {
+						h.Base.SendError(err, s, i)
+						return
+					}
+					if err := tx.Commit(); err != nil {
+						h.Base.SendError(err, s, i)
+						return
+					}
+					base.Respond("Yay someone just won a tournament", s, i, false)
+				}
+			}
+			h.Base.SendError(err, s, i)
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			h.Base.SendError(err, s, i)
+			return
+		}
+		if err := h.UpdateMatchEmbed(s, i); err != nil {
+			h.Base.SendError(err, s, i)
 			return
 		}
 	default:
@@ -283,4 +279,65 @@ func (h *TournamentComponentHandler) delete(s *discordgo.Session, i *discordgo.I
 		}
 		log.Print(err.Error())
 	}
+}
+
+func (h *TournamentComponentHandler) UpdateMatchEmbed(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	_, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		ID:         i.Message.ID,
+		Channel:    i.ChannelID,
+		Components: &[]discordgo.MessageComponent{},
+	})
+	return err
+}
+
+func (h *TournamentComponentHandler) processResult(tx *sql.Tx, tournamentID string, attendeeID, winnerSeat int) (*queue.MatchResult, error) {
+	now := time.Now().Unix()
+	result, err := h.MatchQueue.Result(tournamentID, attendeeID)
+	if err != nil {
+		if errors.Is(err, base.ERR_FOUND_TOURNAMENT_WINNER) {
+			return result, err
+		}
+		return nil, err
+	}
+
+	query := "INSERT INTO match_histories (attendee_id, result, seat, created_at) VALUES "
+	var args []interface{}
+	var placeholders []string
+
+	if result.Winner != nil {
+		winner := result.Winner
+		args = append(args, winner.Attendee.Id, 1, winnerSeat, now)
+		placeholders = append(placeholders, "(?, ?, ?, ?)")
+	}
+
+	if result.Loser != nil {
+		loser := result.Loser
+		args = append(args, loser.Attendee.Id, 0, loser.CurrentSeat.Int64, now)
+		placeholders = append(placeholders, "(?, ?, ?, ?)")
+	}
+	query += strings.Join(placeholders, ", ")
+
+	if len(args) == 0 {
+		return nil, errors.New("No match result to be updated")
+	}
+
+	_, err = tx.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	// update current winner seat to winner node position
+	if result.Winner != nil {
+		winner := result.Winner
+		updateQuery := `UPDATE attendees SET current_seat = ? WHERE id = ?`
+		_, err = tx.Exec(updateQuery, *result.WinnerTo, winner.Attendee.Id)
+		if err != nil {
+			return nil, err
+		}
+		if err := h.MatchQueue.Move(tournamentID, *result.Winner, *result.WinnerTo); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
 }
