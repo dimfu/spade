@@ -13,19 +13,21 @@ import (
 )
 
 type MatchQueue struct {
-	conds    map[string]*sync.Cond
-	brackets map[string]*bracket.BracketTree
-	matches  map[string][]*models.Match
-	queue    map[string][]*models.Match
-	running  map[string]context.CancelFunc
-	wg       map[string]*sync.WaitGroup
-	mutex    sync.Mutex
+	conds      map[string]*sync.Cond
+	brackets   map[string]*bracket.BracketTree
+	matches    map[string][]*models.Match
+	queue      map[string][]*models.Match
+	running    map[string]context.CancelFunc
+	wg         map[string]*sync.WaitGroup
+	matchCount map[string]int
+	mutex      sync.Mutex
 }
 
 type MatchResult struct {
-	Winner   *models.AttendeeWithResult
-	Loser    *models.AttendeeWithResult
-	WinnerTo *int
+	Winner     *models.AttendeeWithResult
+	Loser      *models.AttendeeWithResult
+	WinnerTo   *int
+	MatchCount int
 }
 
 var (
@@ -36,12 +38,13 @@ var (
 func GetMatchQueue() *MatchQueue {
 	once.Do(func() {
 		instance = &MatchQueue{
-			conds:    make(map[string]*sync.Cond),
-			brackets: make(map[string]*bracket.BracketTree),
-			matches:  make(map[string][]*models.Match),
-			queue:    make(map[string][]*models.Match),
-			wg:       map[string]*sync.WaitGroup{},
-			running:  map[string]context.CancelFunc{},
+			conds:      make(map[string]*sync.Cond),
+			brackets:   make(map[string]*bracket.BracketTree),
+			matches:    make(map[string][]*models.Match),
+			queue:      make(map[string][]*models.Match),
+			matchCount: map[string]int{},
+			wg:         map[string]*sync.WaitGroup{},
+			running:    map[string]context.CancelFunc{},
 		}
 	})
 	return instance
@@ -142,10 +145,13 @@ func (q *MatchQueue) Result(tournamentID string, winnerID int) (*MatchResult, er
 			if err := q.Move(tournamentID, *result.Winner, *result.WinnerTo); err != nil {
 				return nil, err
 			}
-			if winnerTo == q.brackets[tournamentID].Root.Position {
-				return result, base.ERR_FOUND_TOURNAMENT_WINNER
-			}
 		}
+	}
+
+	result.MatchCount = q.matchCount[tournamentID]
+
+	if winnerTo == q.brackets[tournamentID].Root.Position {
+		return result, base.ERR_FOUND_TOURNAMENT_WINNER
 	}
 
 	q.queue[tournamentID] = q.queue[tournamentID][1:]
@@ -156,7 +162,7 @@ func (q *MatchQueue) Result(tournamentID string, winnerID int) (*MatchResult, er
 func (q *MatchQueue) Start(
 	tournamentID string, bracket *bracket.BracketTree,
 	matches []*models.Match, ctx context.Context,
-	post func(models.Match),
+	post func(models.Match, int),
 ) error {
 	q.mutex.Lock()
 
@@ -177,6 +183,7 @@ func (q *MatchQueue) Start(
 	q.mutex.Unlock()
 
 	go func(ctx context.Context) {
+		q.matchCount[tournamentID] = 1
 		for _, currMatch := range q.matches[tournamentID] {
 			q.conds[tournamentID].L.Lock()
 			if len(q.queue[tournamentID]) == 1 {
@@ -198,7 +205,8 @@ func (q *MatchQueue) Start(
 			}
 
 			q.queue[tournamentID] = append(q.queue[tournamentID], match)
-			post(*match)
+			post(*match, q.matchCount[tournamentID])
+			q.matchCount[tournamentID]++
 			q.conds[tournamentID].L.Unlock()
 		}
 

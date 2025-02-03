@@ -12,6 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/config"
 	"github.com/dimfu/spade/database"
+	"github.com/dimfu/spade/discord/components"
 	"github.com/dimfu/spade/handlers/base"
 	"github.com/dimfu/spade/handlers/queue"
 	"github.com/dimfu/spade/models"
@@ -72,7 +73,7 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 		if err != nil {
 			if errors.Is(err, base.ERR_FOUND_TOURNAMENT_WINNER) {
 				if result.Winner != nil {
-					if err := h.UpdateMatchEmbed(s, i); err != nil {
+					if err := h.updateMatchEmbed(s, i, result); err != nil {
 						h.Base.SendError(err, s, i)
 						return
 					}
@@ -90,7 +91,8 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 			h.Base.SendError(err, s, i)
 			return
 		}
-		if err := h.UpdateMatchEmbed(s, i); err != nil {
+
+		if err := h.updateMatchEmbed(s, i, result); err != nil {
 			h.Base.SendError(err, s, i)
 			return
 		}
@@ -281,12 +283,19 @@ func (h *TournamentComponentHandler) delete(s *discordgo.Session, i *discordgo.I
 	}
 }
 
-func (h *TournamentComponentHandler) UpdateMatchEmbed(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (h *TournamentComponentHandler) updateMatchEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, result *queue.MatchResult) error {
 	_, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         i.Message.ID,
-		Channel:    i.ChannelID,
+		ID:      i.Message.ID,
+		Channel: i.ChannelID,
+		Embed: components.MatchupEmbed(components.MatchupPayload{
+			P1:     *result.Winner,
+			P2:     *result.Loser,
+			Winner: result.Winner,
+			Match:  result.MatchCount,
+		}),
 		Components: &[]discordgo.MessageComponent{},
 	})
+
 	return err
 }
 

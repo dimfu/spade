@@ -76,8 +76,8 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
 			return
 		}
-		err = h.start(tournamentId, bracket, func(match models.Match) {
-			h.buildEmbed(s, i, match)
+		err = h.start(tournamentId, bracket, func(match models.Match, matchCount int) {
+			h.buildEmbed(s, i, match, matchCount)
 		})
 		if err != nil {
 			log.Printf("Error when starting tournament %v\n", err)
@@ -213,8 +213,8 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		return
 	}
 
-	err = h.start(tournamentId, bracket, func(match models.Match) {
-		h.buildEmbed(s, i, match)
+	err = h.start(tournamentId, bracket, func(match models.Match, matchCount int) {
+		h.buildEmbed(s, i, match, matchCount)
 	})
 	if err != nil {
 		log.Printf("Error when starting tournament %v\n", err)
@@ -310,7 +310,7 @@ func (h *StartHandler) InsertPayload(bt *bracket.BracketTree, s int, a models.At
 	return &attendee, nil
 }
 
-func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree, callback func(match models.Match)) error {
+func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree, callback func(match models.Match, matchCount int)) error {
 	now := time.Now().Unix()
 	_, err := h.db.Exec("UPDATE tournaments SET starting_at = IFNULL(starting_at, ?) WHERE id = ?", now, tournamentId)
 	if err != nil {
@@ -358,13 +358,13 @@ func (h *StartHandler) start(tournamentId []uint8, bracket *bracket.BracketTree,
 		r++
 	}
 
-	go h.MatchQueue.Start(string(tournamentId), bracket, matches, h.ctx, func(match models.Match) {
-		callback(match)
+	go h.MatchQueue.Start(string(tournamentId), bracket, matches, h.ctx, func(match models.Match, matchCount int) {
+		callback(match, matchCount)
 	})
 	return nil
 }
 
-func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, m models.Match) {
+func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, m models.Match, matchCount int) {
 	var p1, p2 models.AttendeeWithResult
 	pairs := make([]models.AttendeeWithResult, 0, 2)
 
@@ -374,6 +374,7 @@ func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.Interaction
 			pairs = append(pairs, payload)
 		}
 	} else {
+		p1 = models.AttendeeWithResult{}
 		p1.Player.Name = "N/A"
 	}
 
@@ -383,6 +384,7 @@ func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.Interaction
 			pairs = append(pairs, payload)
 		}
 	} else {
+		p2 = models.AttendeeWithResult{}
 		p2.Player.Name = "N/A"
 	}
 
@@ -399,8 +401,9 @@ func (h *StartHandler) buildEmbed(s *discordgo.Session, i *discordgo.Interaction
 	}
 	_, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
 		Embed: components.MatchupEmbed(components.MatchupPayload{
-			P1: p1.Player.Name,
-			P2: p2.Player.Name,
+			P1:    p1,
+			P2:    p2,
+			Match: matchCount,
 		}),
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
