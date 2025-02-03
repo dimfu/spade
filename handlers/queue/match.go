@@ -136,8 +136,12 @@ func (q *MatchQueue) Result(tournamentID string, winnerID int) (*MatchResult, er
 		if attendee.Id != winnerID {
 			result.Loser = &attendee
 		} else {
+			attendee.CurrentSeat.Int64 = int64(winnerTo)
 			result.WinnerTo = &winnerTo
 			result.Winner = &attendee
+			if err := q.Move(tournamentID, *result.Winner, *result.WinnerTo); err != nil {
+				return nil, err
+			}
 			if winnerTo == q.brackets[tournamentID].Root.Position {
 				return result, base.ERR_FOUND_TOURNAMENT_WINNER
 			}

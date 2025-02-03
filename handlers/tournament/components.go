@@ -334,9 +334,6 @@ func (h *TournamentComponentHandler) processResult(tx *sql.Tx, tournamentID stri
 		if err != nil {
 			return nil, err
 		}
-		if err := h.MatchQueue.Move(tournamentID, *result.Winner, *result.WinnerTo); err != nil {
-			return nil, err
-		}
 	}
 
 	return result, nil
