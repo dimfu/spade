@@ -56,14 +56,14 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
 		log.Println(err)
-		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL.Error(), s, i, true)
 		return
 	}
 
 	tournament, err := tm.GetById(string(tournamentId))
 	if err != nil {
 		log.Println(err)
-		base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
+		base.SendError(base.ERR_GET_TOURNAMENT, s, i)
 		return
 	}
 	tSize, _ := strconv.Atoi(tournament.TournamentType.Size)
@@ -72,16 +72,14 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	if tournament.Starting_At.Valid {
 		bracket, err := bracket.GenerateFromTemplate(tSize)
 		if err != nil {
-			log.Printf("error while generating bracket %v\n", err)
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			base.SendError(err, s, i)
 			return
 		}
 		err = h.start(tournamentId, bracket, func(match models.Match, matchCount int) {
 			h.buildEmbed(s, i, match, matchCount)
 		})
 		if err != nil {
-			log.Printf("Error when starting tournament %v\n", err)
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			base.SendError(err, s, i)
 			return
 		}
 		base.Respond("Tournament has already been started, resuming with previous result.", s, i, true)
@@ -90,8 +88,7 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 
 	attendees, err := h.attendeeModel.List(string(tournamentId), false)
 	if err != nil {
-		log.Println(err)
-		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+		base.SendError(err, s, i)
 		return
 	}
 
@@ -169,8 +166,7 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 
 		tournamentTypes, err := ttm.List()
 		if err != nil {
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
-			log.Printf("error while getting tournament types, %v", err)
+			base.SendError(err, s, i)
 			return
 		}
 
@@ -185,31 +181,27 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 
 		tournament.Tournament_Types_ID = newTType
 		if err = tm.Update(tournament); err != nil {
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
-			log.Printf("error while updating tournament %v\n", err)
+			base.SendError(err, s, i)
 			return
 		}
 	}
 
 	bracket, err := bracket.GenerateFromTemplate(bracketSize)
 	if err != nil {
-		log.Printf("error while generating bracket %v\n", err)
-		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+		base.SendError(err, s, i)
 		return
 	}
 
 	// re-adjust the seat positions according to new bracket size if needed
 	if shouldReseed || randomize {
 		if err = h.reseed(bracket, attendees, strategy); err != nil {
-			base.Respond("Something went wrong when re-adjusting seat position", s, i, true)
-			log.Println(err)
+			base.SendError(err, s, i)
 			return
 		}
 	}
 
 	if err = tx.Commit(); err != nil {
-		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 
@@ -217,8 +209,7 @@ func (h *StartHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 		h.buildEmbed(s, i, match, matchCount)
 	})
 	if err != nil {
-		log.Printf("Error when starting tournament %v\n", err)
-		base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+		base.SendError(err, s, i)
 		return
 	}
 

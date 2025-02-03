@@ -2,6 +2,7 @@ package tournament
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -56,19 +57,21 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		log.Println(err)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL.Error(), s, i, true)
 		return
 	}
 
 	t, err := tm.GetById(string(tournamentId))
 	if err != nil {
-		base.Respond(err.Error(), s, i, true)
+		base.SendError(err, s, i)
 		return
 	}
 
 	tSize, err := strconv.Atoi(t.TournamentType.Size)
 	if err != nil {
-		log.Fatal(err)
+		base.SendError(err, s, i)
+		return
 	}
 
 	fields := strings.Fields(data.Options[0].StringValue())
@@ -82,12 +85,13 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	bracket, err := bracket.GenerateFromTemplate(tSize)
 	if err != nil {
-		log.Fatal(err)
+		base.SendError(err, s, i)
+		return
 	}
 
 	tx, err := h.db.Begin()
 	if err != nil {
-		log.Printf("error starting transaction %v", err)
+		base.SendError(err, s, i)
 		return
 	}
 	defer tx.Rollback()
@@ -95,7 +99,7 @@ func (h *SeedHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCrea
 	var errMsg string
 	defer func() {
 		if errMsg != "" {
-			base.Respond("Something went wrong while seeding players", s, i, true)
+			base.SendError(errors.New(errMsg), s, i)
 		}
 	}()
 

@@ -61,7 +61,7 @@ func (h *ExportListHandler) Handler(s *discordgo.Session, i *discordgo.Interacti
 	tm := models.NewTournamentsModel(h.db)
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL.Error(), s, i, true)
 		return
 	}
 

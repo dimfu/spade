@@ -148,7 +148,7 @@ func (h *TournamentRegisterHandler) Handler(s *discordgo.Session, i *discordgo.I
 
 	tournamentId, err := h.tournamentsModel.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+		base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL.Error(), s, i, true)
 		return
 	}
 

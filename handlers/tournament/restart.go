@@ -2,7 +2,6 @@ package tournament
 
 import (
 	"database/sql"
-	"log"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/dimfu/spade/database"
@@ -35,18 +34,18 @@ func (h *RestartTournamentHandler) Handler(s *discordgo.Session, i *discordgo.In
 	tm := models.NewTournamentsModel(h.db)
 	tournamentId, err := tm.GetTournamentIDInThread(i.ChannelID)
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 	_, err = tm.GetById(string(tournamentId))
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 
 	tx, err := h.db.Begin()
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 	defer func() {
@@ -58,11 +57,11 @@ func (h *RestartTournamentHandler) Handler(s *discordgo.Session, i *discordgo.In
 
 	err = h.restart(tx, string(tournamentId))
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 	if err = h.MatchQueue.ClearQueue(string(tournamentId)); err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 

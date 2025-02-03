@@ -50,7 +50,7 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 	case "edit":
 		t, err := tm.GetById(id)
 		if err != nil {
-			base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
+			base.SendError(base.ERR_INTERNAL_ERROR, s, i)
 			return
 		}
 		h.edit(s, i, t)
@@ -59,8 +59,7 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 	case "processresult":
 		tx, err := h.db.Begin()
 		if err != nil {
-			log.Println(err)
-			base.Respond(base.ERR_INTERNAL_ERROR, s, i, true)
+			base.SendError(err, s, i)
 			return
 		}
 		defer tx.Rollback()
@@ -74,26 +73,26 @@ func (h *TournamentComponentHandler) Handler(s *discordgo.Session, i *discordgo.
 			if errors.Is(err, base.ERR_FOUND_TOURNAMENT_WINNER) {
 				if result.Winner != nil {
 					if err := h.updateMatchEmbed(s, i, result); err != nil {
-						h.Base.SendError(err, s, i)
+						base.SendError(err, s, i)
 						return
 					}
 					if err := tx.Commit(); err != nil {
-						h.Base.SendError(err, s, i)
+						base.SendError(err, s, i)
 						return
 					}
 					base.Respond("Yay someone just won a tournament", s, i, false)
 				}
 			}
-			h.Base.SendError(err, s, i)
+			base.SendError(err, s, i)
 			return
 		}
 		if err := tx.Commit(); err != nil {
-			h.Base.SendError(err, s, i)
+			base.SendError(err, s, i)
 			return
 		}
 
 		if err := h.updateMatchEmbed(s, i, result); err != nil {
-			h.Base.SendError(err, s, i)
+			base.SendError(err, s, i)
 			return
 		}
 	default:
@@ -107,7 +106,7 @@ func (h *TournamentComponentHandler) publish(
 	cfg := config.GetEnv()
 	t, err := tm.GetById(id)
 	if err != nil {
-		base.Respond(base.ERR_GET_TOURNAMENT, s, i, true)
+		base.SendError(base.ERR_GET_TOURNAMENT, s, i)
 		return
 	}
 
@@ -122,8 +121,7 @@ func (h *TournamentComponentHandler) publish(
 	})
 
 	if err != nil {
-		log.Println(err)
-		base.Respond("Failed to create thread for the tournament", s, i, true)
+		base.SendError(err, s, i)
 		return
 	}
 
@@ -134,7 +132,7 @@ func (h *TournamentComponentHandler) publish(
 	}
 
 	if err = tm.Update(t); err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 
@@ -172,13 +170,13 @@ func (h *TournamentComponentHandler) publish(
 	})
 
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 
 	err = s.ChannelMessagePin(thread.ID, e.ID)
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 

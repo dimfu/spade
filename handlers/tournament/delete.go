@@ -31,7 +31,7 @@ func (h *TournamentDeleteHandler) Command() *discordgo.ApplicationCommand {
 func (h *TournamentDeleteHandler) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	err := h.Base.HasPermit(s, i)
 	if err != nil {
-		log.Println(err)
+		base.SendError(err, s, i)
 		return
 	}
 
@@ -47,7 +47,7 @@ func (h *TournamentDeleteHandler) Handler(s *discordgo.Session, i *discordgo.Int
 	if len(providedTID) == 0 {
 		tId, err = tm.GetTournamentIDInThread(i.ChannelID)
 		if err != nil {
-			base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL, s, i, true)
+			base.Respond(base.ERR_GET_TOURNAMENT_IN_CHANNEL.Error(), s, i, true)
 			return
 		}
 		targetChannel = i.ChannelID
